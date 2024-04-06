@@ -1,0 +1,376 @@
+# file opened: NEMO-80.asm
+  1   0000              ;===========================================================================
+  2   0000              ; Thiago Turcato do Rego - 2023
+  3   0000              ; Project: NEMO-80, New Monitor for CEDM-80
+  4   0000              ; File: NEMO-80.asm
+  5   0000              ;===========================================================================
+  6   0000
+  7   0000              ;============ TERMINOLOGY, CONVENTIONS AND ORGANIZATION ====================
+  8   0000              ; -- TERMINOLOGIES --
+  9   0000              ; subr.  = subroutines
+ 10   0000              ; drcly = directly
+ 11   0000              ; aux. = auxiliary
+ 12   0000              ;
+ 13   0000              ; -- SYMBOLS CONVENTIONS --
+ 14   0000              ; - Symbols in UPPER CASE LETTERS = constants
+ 15   0000              ; - Labels starting with "." are local jump entry points
+ 16   0000              ; - Labels starting with "_" are local subroutines (aux. subr.)
+ 17   0000              ; - Labels starting with lower case letters (except for the cases below)
+ 18   0000              ;    are general function calls, open to any user
+ 19   0000              ; - Labels starting with "dmsg_" are ascii text formated messages to use
+ 20   0000              ;    for display (user interface messages)
+ 21   0000              ;
+ 22   0000              ;=============================================================================
+ 23   0000
+ 24   0000              ; Compilation directives for allocating memory (no bank) and SLD file generation
+ 25   0000               DEVICE NOSLOT64K
+ 26   0000               SLDOPT COMMENT WPMEM, LOGPOINT, ASSERTION
+ 27   0000
+ 28   0000              ;******** Constants definition ********
+ 29   0000              ; ROM first address and size (2 KiB = 2048 bytes, 0000H ~ 07FFH)
+ 30   0000              ROMBEGIN            EQU 0000H
+ 31   0000              ROMSIZE             EQU 800H
+ 32   0000
+ 33   0000              ; RAM first address and size (2 KiB = 2048 bytes, 2000H ~ 27FFH)
+ 34   0000              RAMBEGIN            EQU 2000H
+ 35   0000              RAMSIZE             EQU 800H
+ 36   0000
+ 37   0000              ; Constants
+ 38   0000              CHR_0      EQU 0C0H
+ 39   0000              CHR_1      EQU 0F9H
+ 40   0000              CHR_2      EQU 0A4H
+ 41   0000              CHR_3      EQU 0B0H
+ 42   0000              CHR_4      EQU 099H
+ 43   0000              CHR_5      EQU 092H
+ 44   0000              CHR_6      EQU 082H
+ 45   0000              CHR_7      EQU 0F8H
+ 46   0000              CHR_8      EQU 080H
+ 47   0000              CHR_9      EQU 090H
+ 48   0000              CHR_A      EQU 088H
+ 49   0000              CHR_B      EQU 083H
+ 50   0000              CHR_C      EQU 0C6H
+ 51   0000              CHR_D      EQU 0A1H
+ 52   0000              CHR_E      EQU 086H
+ 53   0000              CHR_F      EQU 08EH
+ 54   0000
+ 55   0000
+ 56   0000              ; I/O addresses
+ 57   0000              DISP            EQU 01H
+ 58   0000              SEL_DISP        EQU 03H
+ 59   0000              KEYB            EQU 01H
+ 60   0000
+ 61   0000              ; RAM para sistema até 27FF
+ 62   0000              RAM_DISPLAY    EQU 2770H    ; Caracteres a serem exibidos no display pos. 2770H a 2775H
+ 63   0000              RAM_KEYBOARD   EQU 276EH
+ 64   0000              RAM_KEYB_COL   EQU 276FH
+ 65   0000              RAM_KEYB_CONV  EQU 276DH
+ 66   0000
+ 67   0000              ; Stack = 2780H a 27FFH
+ 68   0000
+ 69   0000
+ 70   0000              ; Variáveis do programa, do endereço 2000H em diante
+ 71   0000              VAR_VALUE_IN   EQU 2000H
+ 72   0000
+ 73   0000
+ 74   0000              ;******** Beggining of monitor program ********
+ 75   0000                  ORG ROMBEGIN
+ 76   0000
+ 77   0000              ; ********************** Programa principal **********************
+ 78   0000              ; Ajustes e configuração iniciais
+ 79   0000 31 FF 27         LD SP, 27FFH                ; Ajusta o stack pointer no fim da memória RAM. Considerado 128 bytes de stack 2780 até 27FF
+ 80   0003
+ 81   0003              ; Inicializações antes do programa
+ 82   0003              initialization:
+ 83   0003 CD 28 00         CALL clean_ram_disp         ; Limpa a memória de exibição no display
+ 84   0006
+ 85   0006              ; Inicio do programa
+ 86   0006              ini_program:
+ 87   0006 CD 28 00         CALL clean_ram_disp
+ 88   0009 CD 37 00         CALL keyb_disp              ; Chama atualização do display e teclado
+ 89   000C 3A 6D 27         LD A,(RAM_KEYB_CONV)
+ 90   000F FE 00            CP 00
+ 91   0011 C4 1A 00         CALL NZ, .keypressed        ; Se alguma tecla foi apertada, reg A não é zero
+ 92   0014 CD 37 00         CALL keyb_disp              ; Chama atualização do display e teclado
+ 93   0017 C3 06 00         JP ini_program
+ 94   001A
+ 95   001A
+ 96   001A              .keypressed
+ 97   001A CB BF            RES 7,A                     ; Remove bit 7, sinalizador de tecla pressionada
+ 98   001C 4F               LD C,A
+ 99   001D 06 00            LD B,00H
+100   001F 21 61 01         LD HL,d_numchar
+101   0022 09               ADD HL,BC
+102   0023 7E               LD A,(HL)
+103   0024 32 70 27         LD (RAM_DISPLAY),A          ; Exibe código da tecla apertada
+104   0027 C9               RET
+105   0028
+106   0028
+107   0028              ; ********************** Subroutines **********************
+108   0028              ;
+109   0028
+110   0028              ; Subrotina de limpeza da area de memoria para o display
+111   0028              ;
+112   0028              clean_ram_disp:                 ;Inicializa area de memoria do display
+113   0028 E5               PUSH HL
+114   0029 C5               PUSH BC
+115   002A 21 70 27         LD HL,RAM_DISPLAY           ; Inicio da RAM para display
+116   002D 06 06            LD B,06                     ; Preparar ponteiro para 6 endereços a partir do inicio da RAM para display
+117   002F              .loop_clean_disp:               ; Inicializa area de memoria do display, com FFH (nenhum segmento aceso)
+118   002F 36 FF            LD (HL),0FFH
+119   0031 23               INC HL
+120   0032 10 FB            DJNZ .loop_clean_disp
+121   0034 C1               POP BC
+122   0035 E1               POP HL
+123   0036 C9               RET
+124   0037
+125   0037              ; Subrotina de atualização do display/teclado
+126   0037              ;
+127   0037              keyb_disp:
+128   0037 C5               PUSH BC
+129   0038 E5               PUSH HL
+130   0039 3E 00            LD A,00
+131   003B 32 6D 27         LD (RAM_KEYB_CONV),A        ; Limpa variável de memória do teclado antes de ler o teclado
+132   003E 3E 01            LD A,01H                    ; Ajusta A para apontar para a primeira coluna de displays (mais significativa)
+133   0040 21 70 27         LD HL,RAM_DISPLAY           ; Carrega no ponteiro HL primeiro endereço da RAM de sistema para o display
+134   0043              .loop:
+135   0043 D3 03            OUT (SEL_DISP),A            ; Seleciona display apontado por A
+136   0045 4F               LD C,A                      ; Guarda o valor de A
+137   0046 3E FF            LD A,0FFH
+138   0048 D3 01            OUT (DISP),A
+139   004A                  ;LD B, 1
+140   004A                  ;CALL delay_ms
+141   004A DB 01            IN A,(KEYB)                 ; Lê o teclado na coluna atual
+142   004C FE 00            CP 00
+143   004E 28 7A            JR Z,.wr_display            ; Se nada foi lido do teclado (nenhuma tecla apertada), vai para a atualização do display direto
+144   0050 32 6E 27         LD (RAM_KEYBOARD),A         ; Se algo foi lido do teclado, registra tecla para a coluna atual
+145   0053 79               LD A,C                      ; Recupera dado de qual coluna está sendo atualizada
+146   0054 32 6F 27         LD (RAM_KEYB_COL),A         ; Registra na memória de qual coluna é a tecla apertada
+147   0057              .keyb_cnv:
+148   0057 3A 6E 27         LD A,(RAM_KEYBOARD)         ; Converte posição da tecla no valor correspondente que representa (função da tecla)
+149   005A FE 01            CP 01                       ; Não foi considerada ainda a coluna nesse ponto
+150   005C CA 83 00         JP Z,.num_0
+151   005F FE 02            CP 02
+152   0061 CA 88 00         JP Z,.num_1
+153   0064 FE 04            CP 04
+154   0066 CA 8D 00         JP Z,.num_2
+155   0069 FE 08            CP 08
+156   006B CA 92 00         JP Z,.num_3
+157   006E FE 10            CP 16
+158   0070 CA 97 00         JP Z,.num_4
+159   0073 FE 20            CP 32
+160   0075 CA 9C 00         JP Z,.num_5
+161   0078 FE 40            CP 64
+162   007A CA A1 00         JP Z,.num_6
+163   007D FE 80            CP 128
+164   007F CA A6 00         JP Z,.num_7
+165   0082 C9               RET
+166   0083              .num_0:
+167   0083 3E 00            LD A,00H
+168   0085 47               LD B,A
+169   0086 18 21            JR .keyb_col
+170   0088              .num_1:
+171   0088 3E 01            LD A,01H
+172   008A 47               LD B,A
+173   008B 18 1C            JR .keyb_col
+174   008D              .num_2:
+175   008D 3E 02            LD A,02H
+176   008F 47               LD B,A
+177   0090 18 17            JR .keyb_col
+178   0092              .num_3:
+179   0092 3E 03            LD A,03H
+180   0094 47               LD B,A
+181   0095 18 12            JR .keyb_col
+182   0097              .num_4:
+183   0097 3E 04            LD A,04H
+184   0099 47               LD B,A
+185   009A 18 0D            JR .keyb_col
+186   009C              .num_5:
+187   009C 3E 05            LD A,05H
+188   009E 47               LD B,A
+189   009F 18 08            JR .keyb_col
+190   00A1              .num_6:
+191   00A1 3E 06            LD A,06H
+192   00A3 47               LD B,A
+193   00A4 18 03            JR .keyb_col
+194   00A6              .num_7:
+195   00A6 3E 07            LD A,07H
+196   00A8 47               LD B,A
+197   00A9              .keyb_col:
+198   00A9 3A 6F 27         LD A,(RAM_KEYB_COL)         ; Decodifica a coluna e calcula o código correto da tecla (0~7H: coluna 1, 8~FH: coluna 2; 10~17H: coluna 3)
+199   00AC FE 01            CP 01
+200   00AE 28 0A            JR Z,.keyb_cnv_plus0
+201   00B0 FE 02            CP 02
+202   00B2 28 09            JR Z,.keyb_cnv_plus8
+203   00B4 FE 04            CP 04
+204   00B6 28 0A            JR Z,.keyb_cnv_plus16
+205   00B8 18 10            JR .wr_display
+206   00BA              .keyb_cnv_plus0:                ; Identificado como tecla da coluna 1 (0~7H)
+207   00BA 78               LD A,B
+208   00BB 18 08            JR .keyb_cnv_end
+209   00BD              .keyb_cnv_plus8:                ; Identificado como tecla da coluna 2 (8~FH)
+210   00BD 78               LD A,B
+211   00BE C6 08            ADD A,08
+212   00C0 18 03            JR .keyb_cnv_end
+213   00C2              .keyb_cnv_plus16:               ; Identificado como tecla da coluna 1 (10~17H)
+214   00C2 78               LD A,B
+215   00C3 C6 10            ADD A,16
+216   00C5              .keyb_cnv_end:
+217   00C5 CB FF            SET 7,A                     ; Seta o bit 7 do valor convertido para dizer que a tecla foi lida, especialmente no caso do zero (0H)
+218   00C7 32 6D 27         LD (RAM_KEYB_CONV),A
+219   00CA              .wr_display:
+220   00CA 7E               LD A,(HL)
+221   00CB D3 01            OUT (DISP),A
+222   00CD 06 02            LD B, 2
+223   00CF CD 56 01         CALL delay_ms
+224   00D2 23               INC HL
+225   00D3 79               LD A,C
+226   00D4 87               ADD A,A
+227   00D5 FE 40            CP 64
+228   00D7 C2 43 00         JP NZ, .loop                ; Se não chegou na última coluna de atualização do display (64), vai para o próximo loop
+229   00DA E1               POP HL
+230   00DB C1               POP BC
+231   00DC C9               RET
+232   00DD
+233   00DD
+234   00DD
+235   00DD              ; Subrotina para entrada de valor binário via teclado
+236   00DD              ; Entradas:
+237   00DD              ; HL = posição onde será armazenado o valor de entrada
+238   00DD              ; D = indice de posição do dígito de entrada
+239   00DD              ; Registradores afetados
+240   00DD
+241   00DD              bin_input:
+242   00DD D5               PUSH DE
+243   00DE              .test_key
+244   00DE 3A 6D 27         LD A,(RAM_KEYB_CONV)
+245   00E1 FE 00            CP 00
+246   00E3 28 22            JR Z,.reset_bit
+247   00E5 FE 01            CP 01
+248   00E7 28 02            JR Z,.set_bit
+249   00E9 D1               POP DE
+250   00EA C9               RET
+251   00EB              .set_bit
+252   00EB 5E               LD E,(HL)
+253   00EC 7A               LD A,D
+254   00ED FE 00            CP 00
+255   00EF 28 4A            JR Z,.set_bit0
+256   00F1 FE 01            CP 01
+257   00F3 28 4A            JR Z,.set_bit1
+258   00F5 FE 02            CP 02
+259   00F7 28 4A            JR Z,.set_bit2
+260   00F9 FE 03            CP 03
+261   00FB 28 4A            JR Z,.set_bit3
+262   00FD FE 04            CP 04
+263   00FF 28 4A            JR Z,.set_bit4
+264   0101 FE 05            CP 05
+265   0103 28 4A            JR Z,.set_bit5
+266   0105 D1               POP DE
+267   0106 C9               RET
+268   0107              .reset_bit
+269   0107 5E               LD E,(HL)
+270   0108 7A               LD A,D
+271   0109 FE 00            CP 00
+272   010B 28 16            JR Z,.rst_bit0
+273   010D FE 01            CP 01
+274   010F 28 16            JR Z,.rst_bit1
+275   0111 FE 02            CP 02
+276   0113 28 16            JR Z,.rst_bit2
+277   0115 FE 03            CP 03
+278   0117 28 16            JR Z,.rst_bit3
+279   0119 FE 04            CP 04
+280   011B 28 16            JR Z,.rst_bit4
+281   011D FE 05            CP 05
+282   011F 28 16            JR Z,.rst_bit5
+283   0121 D1               POP DE
+284   0122 C9               RET
+285   0123              .rst_bit0
+286   0123 CB 83            RES 0,E
+287   0125 18 2C            JR .end_bin_input
+288   0127              .rst_bit1
+289   0127 CB 8B            RES 1,E
+290   0129 18 28            JR .end_bin_input
+291   012B              .rst_bit2
+292   012B CB 93            RES 2,E
+293   012D 18 24            JR .end_bin_input
+294   012F              .rst_bit3
+295   012F CB 9B            RES 3,E
+296   0131 18 20            JR .end_bin_input
+297   0133              .rst_bit4
+298   0133 CB A3            RES 4,E
+299   0135 18 1C            JR .end_bin_input
+300   0137              .rst_bit5
+301   0137 CB AB            RES 5,E
+302   0139 18 18            JR .end_bin_input
+303   013B              .set_bit0
+304   013B CB C3            SET 0,E
+305   013D 18 14            JR .end_bin_input
+306   013F              .set_bit1
+307   013F CB CB            SET 1,E
+308   0141 18 10            JR .end_bin_input
+309   0143              .set_bit2
+310   0143 CB D3            SET 2,E
+311   0145 18 0C            JR .end_bin_input
+312   0147              .set_bit3
+313   0147 CB DB            SET 3,E
+314   0149 18 08            JR .end_bin_input
+315   014B              .set_bit4
+316   014B CB E3            SET 4,E
+317   014D 18 04            JR .end_bin_input
+318   014F              .set_bit5
+319   014F CB EB            SET 5,E
+320   0151 18 00            JR .end_bin_input
+321   0153              .end_bin_input
+322   0153 73               LD (HL),E
+323   0154 D1               POP DE
+324   0155 C9               RET
+325   0156
+326   0156
+327   0156
+328   0156              ; Delay (operative, ms) for clk = 2 MHz ;
+329   0156              ; Input: B = delay time (ms) 0,5% ;
+330   0156              ; Affects registers A, B, F
+331   0156              delay_ms:
+332   0156 F5               PUSH AF
+333   0157              .delay_mult:
+334   0157 78               LD A, B
+335   0158 06 98            LD B, 152                ;Number of loops adjusted to A = delay ms with minimum error
+336   015A              .delay_1ms:
+337   015A 10 FE            DJNZ .delay_1ms
+338   015C 47               LD B, A
+339   015D 10 F8            DJNZ .delay_mult
+340   015F F1               POP AF
+341   0160 C9               RET
+342   0161
+343   0161              ; Código dos caracteres para exibição no display em sequencia de endereços para facilitar a conversão numérica
+344   0161              ;
+345   0161              ;
+346   0161              d_numchar EQU $
+347   0161 C0               DB      0C0H                ; Caractere 0
+348   0162 F9               DB      0F9H                ; Caractere 1
+349   0163 A4               DB      0A4H                ; Caractere 2
+350   0164 B0               DB      0B0H                ; Caractere 3
+351   0165 99               DB      099H                ; Caractere 4
+352   0166 92               DB      092H                ; Caractere 5
+353   0167 82               DB      082H                ; Caractere 6
+354   0168 F8               DB      0F8H                ; Caractere 7
+355   0169 80               DB      080H                ; Caractere 8
+356   016A 90               DB      090H                ; Caractere 9
+357   016B 88               DB      088H                ; Caractere A
+358   016C 83               DB      083H                ; Caractere B
+359   016D C6               DB      0C6H                ; Caractere C
+360   016E A1               DB      0A1H                ; Caractere D
+361   016F 86               DB      086H                ; Caractere E
+362   0170 8E               DB      08EH                ; Caractere F
+363   0171
+364   0171 FF               DB      0FFH                ; Tecla especial 1
+365   0172 FF               DB      0FFH                ; Tecla especial 2
+366   0173 FF               DB      0FFH                ; Tecla especial 3
+367   0174 FF               DB      0FFH                ; Tecla especial 4
+368   0175 FF               DB      0FFH                ; Tecla especial 5
+369   0176 FF               DB      0FFH                ; Tecla especial 6
+370   0177 FF               DB      0FFH                ; Tecla especial 7
+371   0178 FF               DB      0FFH                ; Tecla especial 8
+372   0179
+373   0179
+374   0179
+# file closed: NEMO-80.asm

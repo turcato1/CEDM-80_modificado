@@ -1,0 +1,888 @@
+# file opened: CEDM-80_reversed.asm
+  1   0000
+  2   0000              ; Disassembly of the file "CEDM-80.BIN"
+  3   0000              ; CPU Type: Z80
+  4   0000              ; Created with dZ80 2.0
+  5   0000              ; on Friday, 02 of February 2024 at 08:01 PM
+  6   0000              ;
+  7   0000              ; Engenharia reversa da ROM do computador (kit didático) CEDM-80 V1
+  8   0000              ;
+  9   0000
+ 10   0000              ; Diretiva para o simulador DeZog, usado com a IDE VSCode, para informar que
+ 11   0000              ; o programa é para um computador com Z80 sem plataforma de mercado (MSX, ZX Spectrum etc.)
+ 12   0000                  DEVICE NOSLOT64K
+ 13   0000
+ 14   0000              ; Distribuição de memória do CEDM-80 V1
+ 15   0000              ; Linhas de endereçamento de A0 a A13 utilizadas (13 bits)
+ 16   0000              ; 0000 ~ 0FFF : EPROM (2716), 4KBytes (embora, somente 2KBytes são endereçáveis em 1 memória)
+ 17   0000              ; 2000 ~ 27FF : RAM (6116), 2KBytes
+ 18   0000              ;
+ 19   0000              ; Em bits (binário):
+ 20   0000              ; XXMM MAAA AAAA AAAA : A = BITS DE ENDEREÇO, M = BITS DE SELEÇÃO DE MEMÓRIA, X = IRRELEVANTE
+ 21   0000              ; 0000 0XXX XXXX XXXX : EPROM (0000 ~ 07FF)
+ 22   0000              ; 0000 1XXX XXXX XXXX : EPROM (0800 ~ 0FFF)
+ 23   0000              ; 0001 0XXX XXXX XXXX : NÃO USADO (1000 ~ 17FF)
+ 24   0000              ; 0001 1XXX XXXX XXXX : NÃO USADO (1800 ~ 1FFF)
+ 25   0000              ; 0010 0XXX XXXX XXXX : RAM (2000 ~ 27FF)
+ 26   0000
+ 27   0000                  ORG 0000H
+ 28   0000
+ 29   0000
+ 30   0000 31 00 28     	LD	SP,2800H		; Define a pilha (stack) começando no endereço 2800H
+ 31   0003 C5           	PUSH	BC
+ 32   0004 D5           	PUSH	DE
+ 33   0005 E5           	PUSH	HL
+ 34   0006 F5           	PUSH	AF
+ 35   0007 21 E6 27     	LD	HL,27E6H
+ 36   000A 36 19        	LD	(HL),19H		; Escreve 19H no endereço 27E6H
+ 37   000C 21 5C 00     	LD	HL,005CH
+ 38   000F 11 E7 27     	LD	DE,27E7H
+ 39   0012 01 06 00     	LD	BC,0006H		; Define execução de 6 vezes do comando LDIR (Cópia de um lugar para outro da memória, do local definido por (HL) para local (DE)
+ 40   0015 ED B0        	LDIR			; Copia o que está na memória, a partir do endereço 005CH para 27E7H, 6 endereços na sequência (mensagem CEDM-80)
+ 41   0017              jmp2:
+ 42   0017 31 E4 27     	LD	SP,27E4H		; Redefine o stack pointer para o endereço 27E4H
+ 43   001A 21 E7 27     	LD	HL,27E7H		; Define localização da mensagem CEDM-80
+ 44   001D 06 00        	LD	B,00H		; Parâmetro do sub1
+ 45   001F 1E 06        	LD	E,06H		; Parâmetro do sub1
+ 46   0021 3E 01        	LD	A,01H		; Parâmetro do sub1
+ 47   0023              jmp1:
+ 48   0023 CD 8C 00     	CALL	sub1		; Chama endereço 0090H
+ 49   0026 79           	LD	A,C
+ 50   0027 87           	ADD	A,A
+ 51   0028 1D           	DEC	E
+ 52   0029 C2 23 00     	JP	NZ, jmp1
+ 53   002C 78           	LD	A,B
+ 54   002D FE 00        	CP	00H
+ 55   002F CA 17 00     	JP	Z, jmp2
+ 56   0032              jmp3:
+ 57   0032 21 E7 27     	LD	HL,27E7H
+ 58   0035 CD 98 00     	CALL	sub2		; Chama endereço 009CH
+ 59   0038 7A           	LD	A,D
+ 60   0039 D3 03        	OUT	(03H),A		; MULTIPLEXAÇÃO (seleciona coluna)
+ 61   003B DB 01        	IN	A,(01H)		; Lê teclado
+ 62   003D FE 00        	CP	00H		; Verifica se nenhuma tecla foi apertada
+ 63   003F C2 32 00     	JP	NZ, jmp3		; Se nenhuma tecla foi apertada, vai para JMP3 (loop), senão vai para SUB3
+ 64   0042 CD B9 00     	CALL	sub3		; Chama endereço 00BDH
+ 65   0045 CD D4 00     	CALL	sub4		; Chama endereço 00D8H
+ 66   0048 FE 13        	CP	13H
+ 67   004A CA 73 00     	JP	Z, jmp4
+ 68   004D FE 10        	CP	10H
+ 69   004F DA 7F 00     	JP	C, jmp5
+ 70   0052              jmp8:
+ 71   0052 CD EC 00     	CALL	sub5		; Chama endereço 00F0H
+ 72   0055              jmp9:
+ 73   0055 21 E6 27     	LD	HL,27E6H
+ 74   0058 7E           	LD	A,(HL)
+ 75   0059 C3 65 00     	JP	jmp6
+ 76   005C
+ 77   005C C6 86 A1 AA      DB	0C6H, 86H, 0A1H, 0AAH, 80H, 0C0H			; Mensagem codificada para os displays: "CEDM-80"
+ 77   0060 80 C0
+ 78   0062
+ 79   0062 C3 50 03     	JP	0350H
+ 80   0065
+ 81   0065              jmp6:
+ 82   0065 21 20 03     	LD	HL,0320H
+ 83   0068 85           	ADD	A,L
+ 84   0069 6F           	LD	L,A
+ 85   006A 7E           	LD	A,(HL)
+ 86   006B 4F           	LD	C,A
+ 87   006C 3E 0A        	LD	A,0AH
+ 88   006E 85           	ADD	A,L
+ 89   006F 6F           	LD	L,A
+ 90   0070 6E           	LD	L,(HL)
+ 91   0071 61           	LD	H,C
+ 92   0072 E9           	JP	(HL)
+ 93   0073              jmp4:
+ 94   0073 21 E6 27     	LD	HL,27E6H
+ 95   0076 7E           	LD	A,(HL)
+ 96   0077 FE 15        	CP	15H
+ 97   0079 CA F0 01     	JP	Z, jmp7
+ 98   007C C3 52 00     	JP	jmp8
+ 99   007F              jmp5:
+100   007F 21 E6 27     	LD	HL,27E6H
+101   0082 7E           	LD	A,(HL)
+102   0083 FE 15        	CP	15H
+103   0085 CA 05 02     	JP	Z,0205H
+104   0088 00           	NOP
+105   0089 C3 55 00     	JP	jmp9
+106   008C              sub1:				; Faz a leitura de dado do endereço de I/O 01H
+107   008C 4F           	LD	C,A
+108   008D CD A5 00     	CALL	sub6		; Atualiza leitura do teclado
+109   0090 DB 01        	IN	A,(01H)		; Lê dado no buffer do teclado
+110   0092 FE 00        	CP	00H		; Verifica se foi pressionada alguma tecla
+111   0094 C8           	RET	Z		; Se nenhuma tecla foi apertada, retorna ao programa que chamou
+112   0095
+113   0095 47           	LD	B,A		; Se alguma tecla foi apertada, transfere buffer lido para o reg. B
+114   0096 51           	LD	D,C
+115   0097 C9           	RET
+116   0098              sub2:				; Texto a ser exibido deve estar no endereço apontado por HL
+117   0098 0E 06        	LD	C,06H
+118   009A 3E 01        	LD	A,01H
+119   009C              jmp27:
+120   009C CD A5 00     	CALL	sub6		; Atualização do display
+121   009F 87           	ADD	A,A
+122   00A0 0D           	DEC	C
+123   00A1 C8           	RET	Z
+124   00A2 C3 9C 00     	JP	jmp27
+125   00A5              sub6:
+126   00A5 F5           	PUSH	AF
+127   00A6 D3 03        	OUT	(03H),A		; Seleciona linha definida pelo reg. A na multiplexação
+128   00A8 7E           	LD	A,(HL)		; Dado a ser escrito no display selecionado vem do endereço de memória HL
+129   00A9 D3 01        	OUT	(01H),A		; Atualiza display selecionado na multiplexação
+130   00AB D9           	EXX
+131   00AC 11 00 01     	LD	DE,0100H
+132   00AF              jmp10:
+133   00AF 1B           	DEC	DE
+134   00B0 7A           	LD	A,D
+135   00B1 B3           	OR	E
+136   00B2 C2 AF 00     	JP	NZ, jmp10
+137   00B5 D9           	EXX
+138   00B6 23           	INC	HL
+139   00B7 F1           	POP	AF
+140   00B8 C9           	RET
+141   00B9              sub3:
+142   00B9 0E 00        	LD	C,00H
+143   00BB 3E 01        	LD	A,01H
+144   00BD BA           	CP	D
+145   00BE CA D2 00     	JP	Z, jmp11
+146   00C1 87           	ADD	A,A
+147   00C2 0E 08        	LD	C,08H
+148   00C4 BA           	CP	D
+149   00C5 CA D2 00     	JP	Z, jmp11
+150   00C8 87           	ADD	A,A
+151   00C9 0E 10        	LD	C,10H
+152   00CB BA           	CP	D
+153   00CC CA D2 00     	JP	Z, jmp11
+154   00CF C3 17 00     	JP	jmp2
+155   00D2              jmp11:
+156   00D2 51           	LD	D,C
+157   00D3 C9           	RET
+158   00D4              sub4:
+159   00D4 1E 08        	LD	E,08H
+160   00D6 0E 00        	LD	C,00H
+161   00D8 3E 01        	LD	A,01H
+162   00DA              jmp13:
+163   00DA B8           	CP	B
+164   00DB CA E7 00     	JP	Z, jmp12
+165   00DE 0C           	INC	C
+166   00DF 87           	ADD	A,A
+167   00E0 1D           	DEC	E
+168   00E1 C2 DA 00     	JP	NZ, jmp13
+169   00E4 C3 17 00     	JP	jmp2
+170   00E7              jmp12:
+171   00E7 79           	LD	A,C
+172   00E8 82           	ADD	A,D
+173   00E9 47           	LD	B,A
+174   00EA C9           	RET
+175   00EB
+176   00EB 00           	NOP
+177   00EC
+178   00EC              sub5:
+179   00EC 21 E6 27     	LD	HL,27E6H
+180   00EF 70           	LD	(HL),B
+181   00F0 C9           	RET
+182   00F1
+183   00F1 0E 06        	LD	C,06H
+184   00F3 21 E6 27     	LD	HL,27E6H
+185   00F6 36 17        	LD	(HL),17H
+186   00F8 23           	INC	HL
+187   00F9              jmp14:
+188   00F9 36 FF        	LD	(HL),0FFH
+189   00FB 23           	INC	HL
+190   00FC 0D           	DEC	C
+191   00FD C2 F9 00     	JP	NZ, jmp14
+192   0100 36 00        	LD	(HL),00H
+193   0102 23           	INC	HL
+194   0103 36 00        	LD	(HL),00H
+195   0105 23           	INC	HL
+196   0106 36 00        	LD	(HL),00H
+197   0108 C3 17 00     	JP	jmp2
+198   010B 21 EE 27     	LD	HL,27EEH
+199   010E 78           	LD	A,B
+200   010F ED 6F        	RLD
+201   0111 23           	INC	HL
+202   0112 ED 6F        	RLD
+203   0114 CD 4E 01     	CALL	sub7		; Chama endereço 0152H
+204   0117 C3 17 00     	JP	jmp2
+205   011A CD 3C 01     	CALL	sub11		; Chama endereço 0140H
+206   011D 21 E6 27     	LD	HL,27E6H
+207   0120 36 18        	LD	(HL),18H
+208   0122 21 EF 27     	LD	HL,27EFH
+209   0125 CD 4E 01     	CALL	sub7		; Chama endereço 0152H
+210   0128 C3 17 00     	JP	jmp2
+211   012B CD 3C 01     	CALL	sub11		; Chama endereço 0140H
+212   012E 78           	LD	A,B
+213   012F ED 6F        	RLD
+214   0131 7E           	LD	A,(HL)
+215   0132 12           	LD	(DE),A
+216   0133 21 EF 27     	LD	HL,27EFH
+217   0136 CD 4E 01     	CALL	sub7		; Chama endereço 0152H
+218   0139 C3 17 00     	JP	jmp2
+219   013C              sub11:
+220   013C 21 EE 27     	LD	HL,27EEH
+221   013F 5E           	LD	E,(HL)
+222   0140 23           	INC	HL
+223   0141 56           	LD	D,(HL)
+224   0142 1A           	LD	A,(DE)
+225   0143 2B           	DEC	HL
+226   0144 2B           	DEC	HL
+227   0145 77           	LD	(HL),A
+228   0146 E5           	PUSH	HL
+229   0147 21 E6 27     	LD	HL,27E6H
+230   014A 36 18        	LD	(HL),18H
+231   014C E1           	POP	HL
+232   014D C9           	RET
+233   014E              sub7:
+234   014E 01 E7 27     	LD	BC,27E7H
+235   0151 CD 6A 01     	CALL	sub9		; Chama endereço 016EH
+236   0154 2B           	DEC	HL
+237   0155 CD 6A 01     	CALL	sub9		; Chama endereço 016EH
+238   0158 2B           	DEC	HL
+239   0159 CD 6A 01     	CALL	sub9		; Chama endereço 016EH
+240   015C C9           	RET
+241   015D              sub12:
+242   015D 21 EE 27     	LD	HL,27EEH
+243   0160 73           	LD	(HL),E
+244   0161 23           	INC	HL
+245   0162 72           	LD	(HL),D
+246   0163 2B           	DEC	HL
+247   0164 2B           	DEC	HL
+248   0165 1A           	LD	A,(DE)
+249   0166 77           	LD	(HL),A
+250   0167 C9           	RET
+251   0168
+252   0168 FF           	RST	38H
+253   0169 FF           	RST	38H
+254   016A              sub9:				; Exibe números em hexadecimal?
+255   016A 7E           	LD	A,(HL)
+256   016B E5           	PUSH	HL
+257   016C 21 F0 27     	LD	HL,27F0H
+258   016F 77           	LD	(HL),A
+259   0170 AF           	XOR	A
+260   0171 ED 6F        	RLD
+261   0173 CD 82 01     	CALL	sub10		; Chama endereço 0186H
+262   0176 02           	LD	(BC),A
+263   0177 03           	INC	BC
+264   0178 AF           	XOR	A
+265   0179 ED 6F        	RLD
+266   017B CD 82 01     	CALL	sub10		; Chama endereço 0186H
+267   017E 02           	LD	(BC),A
+268   017F 03           	INC	BC
+269   0180 E1           	POP	HL
+270   0181 C9           	RET
+271   0182              sub10:
+272   0182 D5           	PUSH	DE		; Decodificação de Hexadecimal?
+273   0183 11 8F 01     	LD	DE,018FH
+274   0186 83           	ADD	A,E
+275   0187 5F           	LD	E,A
+276   0188 1A           	LD	A,(DE)
+277   0189 D1           	POP	DE
+278   018A C9           	RET
+279   018B
+280   018B C0 F9 A4 B0      DB	0C0H, 0F9H, 0A4H, 0B0H, 99H, 92H, 82H, 0F8H, 80H, 90H, 88H, 83H, 0C6H, 0A1H, 86H, 8EH			; Caracteres "0" a "F" tabelados para o display (hexadecimal)
+280   018F 99 92 82 F8
+280   0193 80 90 88 83
+280   0197 C6 A1 86 8E
+281   019B
+282   019B CD 3C 01     	CALL	sub11		; Chama endereço 0140H
+283   019E 13           	INC	DE
+284   019F CD 5D 01     	CALL	sub12		; Chama endereço 0161H
+285   01A2 21 EF 27     	LD	HL,27EFH
+286   01A5 CD 4E 01     	CALL	sub7		; Chama endereço 0152H
+287   01A8 C3 17 00     	JP	jmp2
+288   01AB CD 3C 01     	CALL	sub11		;Chama endereço 0140H
+289   01AE 1B           	DEC	DE
+290   01AF CD 5D 01     	CALL	sub12		; Chama endereço 0161H
+291   01B2 21 EF 27     	LD	HL,27EFH
+292   01B5 CD 4E 01     	CALL	sub7		; Chama endereço 0152H
+293   01B8 C3 17 00     	JP	jmp2
+294   01BB
+295   01BB FF           	RST	38H
+296   01BC FF           	RST	38H
+297   01BD FF           	RST	38H
+298   01BE FF           	RST	38H
+299   01BF FF           	RST	38H
+300   01C0 FF           	RST	38H
+301   01C1 FF           	RST	38H
+302   01C2 FF           	RST	38H
+303   01C3 FF           	RST	38H
+304   01C4
+305   01C4 3E FF        	LD	A,0FFH
+306   01C6 D3 03        	OUT	(03H),A
+307   01C8 3E 7F        	LD	A,7FH
+308   01CA D3 01        	OUT	(01H),A
+309   01CC 21 ED 27     	LD	HL,27EDH
+310   01CF 36 C3        	LD	(HL),0C3H
+311   01D1 31 F8 27     	LD	SP,27F8H
+312   01D4 F1           	POP	AF
+313   01D5 E1           	POP	HL
+314   01D6 D1           	POP	DE
+315   01D7 C1           	POP	BC
+316   01D8 31 E4 27     	LD	SP,27E4H
+317   01DB C3 ED 27     	JP	27EDH		;?
+318   01DE              jmp19:
+319   01DE 21 E5 27     	LD	HL,27E5H
+320   01E1 36 FE        	LD	(HL),0FEH
+321   01E3 C3 F0 01     	JP	jmp7
+322   01E6              sub13:
+323   01E6 21 E7 27     	LD	HL,27E7H
+324   01E9 36 FF        	LD	(HL),0FFH
+325   01EB 23           	INC	HL
+326   01EC 36 FF        	LD	(HL),0FFH
+327   01EE 23           	INC	HL
+328   01EF C9           	RET
+329   01F0              jmp7:
+330   01F0 11 04 03     	LD	DE,0304H
+331   01F3 21 E5 27     	LD	HL,27E5H
+332   01F6 34           	INC	(HL)
+333   01F7 34           	INC	(HL)
+334   01F8 7B           	LD	A,E
+335   01F9 86           	ADD	A,(HL)
+336   01FA              jmp15:
+337   01FA 5F           	LD	E,A
+338   01FB 1A           	LD	A,(DE)
+339   01FC 6F           	LD	L,A
+340   01FD 13           	INC	DE
+341   01FE 1A           	LD	A,(DE)
+342   01FF 67           	LD	H,A
+343   0200 E9           	JP	(HL)
+344   0201 21 E5 27     	LD	HL,27E5H
+345   0204 11 1B 03     	LD	DE,031BH
+346   0207 7B           	LD	A,E
+347   0208 86           	ADD	A,(HL)
+348   0209 C3 FA 01     	JP	jmp15
+349   020C CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+350   020F 36 88        	LD	(HL),88H
+351   0211 23           	INC	HL
+352   0212 36 B7        	LD	(HL),0B7H
+353   0214 21 F9 27     	LD	HL,27F9H
+354   0217 C3 1A 02     	JP	jmp16
+355   021A              jmp16:
+356   021A 01 EB 27     	LD	BC,27EBH
+357   021D CD 6A 01     	CALL	sub9		;Chama endereço 016EH
+358   0220 C3 17 00     	JP	jmp2
+359   0223 21 F9 27     	LD	HL,27F9H
+360   0226 78           	LD	A,B
+361   0227 ED 6F        	RLD
+362   0229 C3 1A 02     	JP	jmp16
+363   022C CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+364   022F 36 83        	LD	(HL),83H
+365   0231 23           	INC	HL
+366   0232 36 B7        	LD	(HL),0B7H
+367   0234 21 FF 27     	LD	HL,27FFH
+368   0237 C3 1A 02     	JP	jmp16
+369   023A 21 FF 27     	LD	HL,27FFH
+370   023D 78           	LD	A,B
+371   023E ED 6F        	RLD
+372   0240 C3 1A 02     	JP	jmp16
+373   0243 CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+374   0246 36 C6        	LD	(HL),0C6H
+375   0248 23           	INC	HL
+376   0249 36 B7        	LD	(HL),0B7H
+377   024B 21 FE 27     	LD	HL,27FEH
+378   024E C3 1A 02     	JP	jmp16
+379   0251 21 FE 27     	LD	HL,27FEH
+380   0254 78           	LD	A,B
+381   0255 ED 6F        	RLD
+382   0257 C3 1A 02     	JP	jmp16
+383   025A CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+384   025D 36 A1        	LD	(HL),0A1H
+385   025F 23           	INC	HL
+386   0260 36 B7        	LD	(HL),0B7H
+387   0262 21 FD 27     	LD	HL,27FDH
+388   0265 C3 1A 02     	JP	jmp16
+389   0268 21 FD 27     	LD	HL,27FDH
+390   026B 78           	LD	A,B
+391   026C ED 6F        	RLD
+392   026E C3 1A 02     	JP	jmp16
+393   0271 CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+394   0274 36 86        	LD	(HL),86H
+395   0276 23           	INC	HL
+396   0277 36 B7        	LD	(HL),0B7H
+397   0279 21 FC 27     	LD	HL,27FCH
+398   027C C3 1A 02     	JP	jmp16
+399   027F 21 FC 27     	LD	HL,27FCH
+400   0282 78           	LD	A,B
+401   0283 ED 6F        	RLD
+402   0285 C3 1A 02     	JP	jmp16
+403   0288 CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+404   028B 36 89        	LD	(HL),89H
+405   028D 23           	INC	HL
+406   028E 36 B7        	LD	(HL),0B7H
+407   0290 21 FB 27     	LD	HL,27FBH
+408   0293 C3 1A 02     	JP	jmp16
+409   0296 21 FB 27     	LD	HL,27FBH
+410   0299 78           	LD	A,B
+411   029A ED 6F        	RLD
+412   029C C3 1A 02     	JP	jmp16
+413   029F CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+414   02A2 36 C7        	LD	(HL),0C7H
+415   02A4 23           	INC	HL
+416   02A5 36 B7        	LD	(HL),0B7H
+417   02A7 21 FA 27     	LD	HL,27FAH
+418   02AA C3 1A 02     	JP	jmp16
+419   02AD 21 FA 27     	LD	HL,27FAH
+420   02B0 78           	LD	A,B
+421   02B1 ED 6F        	RLD
+422   02B3 C3 1A 02     	JP	jmp16
+423   02B6 CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+424   02B9 36 8E        	LD	(HL),8EH
+425   02BB 23           	INC	HL
+426   02BC 36 B7        	LD	(HL),0B7H
+427   02BE 21 F8 27     	LD	HL,27F8H
+428   02C1 C3 1A 02     	JP	jmp16
+429   02C4 21 F8 27     	LD	HL,27F8H
+430   02C7 78           	LD	A,B
+431   02C8 ED 6F        	RLD
+432   02CA C3 1A 02     	JP	jmp16
+433   02CD ED 57        	LD	A,I
+434   02CF 21 F7 27     	LD	HL,27F7H
+435   02D2 77           	LD	(HL),A
+436   02D3 CD E6 01     	CALL	sub13		;Chama endereço 01EAH
+437   02D6 36 F9        	LD	(HL),0F9H
+438   02D8 23           	INC	HL
+439   02D9 36 B7        	LD	(HL),0B7H
+440   02DB 21 F7 27     	LD	HL,27F7H
+441   02DE C3 1A 02     	JP	jmp16
+442   02E1 21 F7 27     	LD	HL,27F7H
+443   02E4 78           	LD	A,B
+444   02E5 ED 6F        	RLD
+445   02E7 7E           	LD	A,(HL)
+446   02E8 ED 47        	LD	I,A
+447   02EA C3 1A 02     	JP	jmp16
+448   02ED 01 F2 27     	LD	BC,27F2H
+449   02F0 3E C3        	LD	A,0C3H
+450   02F2 02           	LD	(BC),A
+451   02F3 03           	INC	BC
+452   02F4 21 EE 27     	LD	HL,27EEH
+453   02F7 7E           	LD	A,(HL)
+454   02F8 02           	LD	(BC),A
+455   02F9 03           	INC	BC
+456   02FA 23           	INC	HL
+457   02FB 7E           	LD	A,(HL)
+458   02FC 02           	LD	(BC),A
+459   02FD C3 17 00     	JP	jmp2
+460   0300 10 06        	DJNZ	0308H
+461   0302 30 02        	JR	NC, jmp17
+462   0304 47           	LD	B,A
+463   0305 02           	LD	(BC),A
+464   0306              jmp17:
+465   0306 5E           	LD	E,(HL)
+466   0307 02           	LD	(BC),A
+467   0308 75           	LD	(HL),L
+468   0309 02           	LD	(BC),A
+469   030A 8C           	ADC	A,H
+470   030B 02           	LD	(BC),A
+471   030C A3           	AND	E
+472   030D 02           	LD	(BC),A
+473   030E BA           	CP	D
+474   030F 02           	LD	(BC),A
+475   0310 D1           	POP	DE
+476   0311 02           	LD	(BC),A
+477   0312 18 03        	JR	jmp18
+478   0314 C3 DE 01     	JP	jmp19
+479   0317              jmp18:
+480   0317 27           	DAA
+481   0318 02           	LD	(BC),A
+482   0319 3E 02        	LD	A,02H
+483   031B 55           	LD	D,L
+484   031C 02           	LD	(BC),A
+485   031D 6C           	LD	L,H
+486   031E 02           	LD	(BC),A
+487   031F 83           	ADD	A,E
+488   0320 02           	LD	(BC),A
+489   0321 9A           	SBC	A,D
+490   0322 02           	LD	(BC),A
+491   0323 B1           	OR	C
+492   0324 02           	LD	(BC),A
+493   0325 C8           	RET	Z
+494   0326
+495   0326 02           	LD	(BC),A
+496   0327 E5           	PUSH	HL
+497   0328 02           	LD	(BC),A
+498   0329 FF           	RST	38H
+499   032A FF           	RST	38H
+500   032B FF           	RST	38H
+501   032C 00           	NOP
+502   032D 01 01 01     	LD	BC,0101H
+503   0330 01 01 02     	LD	BC,0201H
+504   0333 01 01 00     	LD	BC,0001H
+505   0336 F5           	PUSH	AF
+506   0337 1E AF        	LD	E,0AFH
+507   0339 9F           	SBC	A,A
+508   033A C8           	RET	Z
+509   033B
+510   033B E2 F1 0F     	JP	PO,0FF1H		;?
+511   033E 2F           	CPL
+512   033F 17           	RLA
+513   0340
+514   0340 FF           	RST	38H
+515   0341 FF           	RST	38H
+516   0342 FF           	RST	38H
+517   0343 FF           	RST	38H
+518   0344 FF           	RST	38H
+519   0345 FF           	RST	38H
+520   0346 FF           	RST	38H
+521   0347 FF           	RST	38H
+522   0348 FF           	RST	38H
+523   0349 FF           	RST	38H
+524   034A FF           	RST	38H
+525   034B FF           	RST	38H
+526   034C
+527   034C 3E 00        	LD	A,00H
+528   034E 32 59 27     	LD	(2759H),A
+529   0351 21 91 05     	LD	HL,0591H
+530   0354              jmp35:
+531   0354 11 5A 27     	LD	DE,275AH
+532   0357 01 06 00     	LD	BC,0006H
+533   035A ED B0        	LDIR
+534   035C              jmp21:
+535   035C 21 5A 27     	LD	HL,275AH
+536   035F 06 00        	LD	B,00H
+537   0361 1E 06        	LD	E,06H
+538   0363 3E 01        	LD	A,01H
+539   0365              jmp20:
+540   0365 CD 8C 00     	CALL	sub1		;Chama endereço 0090H
+541   0368 79           	LD	A,C
+542   0369 87           	ADD	A,A
+543   036A 1D           	DEC	E
+544   036B 20 F8        	JR	NZ, jmp20
+545   036D 78           	LD	A,B
+546   036E FE 00        	CP	00H
+547   0370 28 EA        	JR	Z, jmp21
+548   0372              jmp22:
+549   0372 21 5A 27     	LD	HL,275AH
+550   0375 CD 98 00     	CALL	sub2		;Chama endereço 0090H
+551   0378 7A           	LD	A,D
+552   0379 D3 03        	OUT	(03H),A		; MULTIPLEXAÇÃO
+553   037B DB 01        	IN	A,(01H)		; TECLADO
+554   037D FE 00        	CP	00H
+555   037F 20 F1        	JR	NZ, jmp22
+556   0381 CD B9 00     	CALL	sub3		;Chama endereço 00BDH
+557   0384 CD D4 00     	CALL	sub4		;Chama endereço 00D8H
+558   0387 FE 14        	CP	14H
+559   0389 CA B0 03     	JP	Z, jmp23
+560   038C FE 10        	CP	10H
+561   038E 38 10        	JR	C, jmp24
+562   0390 FE 13        	CP	13H
+563   0392 28 03        	JR	Z, jmp26
+564   0394 C3 5C 03     	JP	jmp21
+565   0397              jmp26:
+566   0397 3A 59 27     	LD	A,(2759H)
+567   039A FE 00        	CP	00H
+568   039C CA 9F 04     	JP	Z, jmp25
+569   039F C7           	RST	00H
+570   03A0              jmp24:
+571   03A0 3A 59 27     	LD	A,(2759H)
+572   03A3 FE 00        	CP	00H
+573   03A5 28 2F        	JR	Z,jmp29
+574   03A7 FE 01        	CP	01H
+575   03A9 28 30        	JR	Z,jmp30		; 03DF
+576   03AB FE 02        	CP	02H
+577   03AD 28 31        	JR	Z,jmp31		; 03E4
+578   03AF C7           	RST	00H
+579   03B0              jmp23:
+580   03B0 3A 59 27     	LD	A,(2759H)
+581   03B3 FE 00        	CP	00H
+582   03B5 28 09        	JR	Z,jmp32		; 03C4
+583   03B7 FE 01        	CP	01H
+584   03B9 28 10        	JR	Z,jmp33		; 03CF
+585   03BB FE 02        	CP	02H
+586   03BD 28 3C        	JR	Z,jmp34		; 03FF
+587   03BF C7           	RST	00H
+588   03C0              jmp32:
+589   03C0 21 97 05     	LD	HL,0597H
+590   03C3 3E 01        	LD	A,01H
+591   03C5 32 59 27     	LD	(2759H),A
+592   03C8 C3 54 03     	JP	jmp35		; 0358
+593   03CB              jmp33:
+594   03CB 21 9D 05     	LD	HL,059DH
+595   03CE 3E 02        	LD	A,02H
+596   03D0 32 59 27     	LD	(2759H),A
+597   03D3 C3 54 03     	JP	jmp35		; 0358
+598   03D6              jmp29:
+599   03D6 21 50 27     	LD	HL,2750H
+600   03D9 18 08        	JR	jmp36		; 03E7
+601   03DB              jmp30:
+602   03DB 21 52 27     	LD	HL,2752H
+603   03DE 18 03        	JR	jmp36		; 03E7
+604   03E0              jmp31:
+605   03E0 21 54 27     	LD	HL,2754H
+606   03E3              jmp36:
+607   03E3 78           	LD	A,B
+608   03E4 E5           	PUSH	HL
+609   03E5 ED 6F        	RLD
+610   03E7 23           	INC	HL
+611   03E8 ED 6F        	RLD
+612   03EA 01 5C 27     	LD	BC,275CH
+613   03ED E1           	POP	HL
+614   03EE CD 6A 01     	CALL	sub9		;Chama endereço 016EH
+615   03F1 23           	INC	HL
+616   03F2 01 5A 27     	LD	BC,275AH
+617   03F5 CD 6A 01     	CALL	sub9		;Chama endereço 016EH
+618   03F8 C3 5C 03     	JP	jmp21
+619   03FB              jmp34:
+620   03FB 3E FF        	LD	A,0FFH
+621   03FD D3 03        	OUT	(03H),A		; MULTIPLEXAÇÃO
+622   03FF 3E F7        	LD	A,0F7H
+623   0401 D3 01        	OUT	(01H),A		; DISPLAY
+624   0403 CD 30 04     	CALL	sub14		;Chama endereço 0434H
+625   0406 DA 71 05     	JP	C,jmp37		; 0575
+626   0409 32 56 27     	LD	(2756H),A
+627   040C 21 A0 0F     	LD	HL,0FA0H
+628   040F CD 87 04     	CALL	sub19
+629   0412 21 50 27     	LD	HL,2750H
+630   0415 01 07 00     	LD	BC,0007H
+631   0418 CD 50 04     	CALL	sub24
+632   041B 21 A0 0F     	LD	HL,0FA0H
+633   041E CD 8B 04     	CALL	sub18
+634   0421 CD 3D 04     	CALL	sub15
+635   0424 CD 50 04     	CALL	sub24
+636   0427 21 A0 0F     	LD	HL,0FA0H
+637   042A CD 8B 04     	CALL	sub18
+638   042D C3 79 05     	JP	jmp28		; 057D
+639   0430              sub14:
+640   0430 CD 3D 04     	CALL	sub15		;Chama endereço 0441H
+641   0433 D8           	RET	C
+642   0434
+643   0434 AF           	XOR	A
+644   0435              jmp38:
+645   0435 86           	ADD	A,(HL)
+646   0436 ED A1        	CPI
+647   0438 EA 35 04     	JP	PE,jmp38
+648   043B B7           	OR	A
+649   043C C9           	RET
+650   043D              sub15:
+651   043D 21 52 27     	LD	HL,2752H
+652   0440 5E           	LD	E,(HL)
+653   0441 23           	INC	HL
+654   0442 56           	LD	D,(HL)
+655   0443 23           	INC	HL
+656   0444 4E           	LD	C,(HL)
+657   0445 23           	INC	HL
+658   0446 66           	LD	H,(HL)
+659   0447 69           	LD	L,C
+660   0448 B7           	OR	A
+661   0449 ED 52        	SBC	HL,DE
+662   044B 4D           	LD	C,L
+663   044C 44           	LD	B,H
+664   044D 03           	INC	BC
+665   044E EB           	EX	DE,HL
+666   044F C9           	RET
+667   0450              sub24:
+668   0450 5E           	LD	E,(HL)
+669   0451 CD 5A 04     	CALL	sub16		;Chama endereço 045EH
+670   0454 ED A1        	CPI
+671   0456 EA 50 04     	JP	PE,sub24
+672   0459 C9           	RET
+673   045A              sub16:
+674   045A 16 08        	LD	D,08H
+675   045C B7           	OR	A
+676   045D CD 6D 04     	CALL	sub17		;Chama endereço 0471H
+677   0460              jmp39:
+678   0460 CB 1B        	RR	E
+679   0462 CD 6D 04     	CALL	sub17		;Chama endereço 0471H
+680   0465 15           	DEC	D
+681   0466 20 F8        	JR	NZ,jmp39
+682   0468 37           	SCF
+683   0469 CD 6D 04     	CALL	sub17		;Chama endereço 0471H
+684   046C C9           	RET
+685   046D              sub17:
+686   046D D9           	EXX
+687   046E 26 00        	LD	H,00H
+688   0470 38 09        	JR	C,jmp40
+689   0472 2E 10        	LD	L,10H
+690   0474 CD 8B 04     	CALL	sub18		;Chama endereço 048FH
+691   0477 2E 04        	LD	L,04H
+692   0479 18 07        	JR	jmp41		; 0486
+693   047B              jmp40:
+694   047B 2E 08        	LD	L,08H
+695   047D CD 8B 04     	CALL	sub18		;Chama endereço 048FH
+696   0480 2E 08        	LD	L,08H
+697   0482              jmp41:
+698   0482 CD 87 04     	CALL	sub19		;Chama endereço 048BH
+699   0485 D9           	EXX
+700   0486 C9           	RET
+701   0487              sub19:
+702   0487 0E 9A        	LD	C,9AH
+703   0489 18 02        	JR	jmp42		; 0491
+704   048B              sub18:
+705   048B 0E 4D        	LD	C,4DH
+706   048D              jmp42:
+707   048D 29           	ADD	HL,HL
+708   048E 11 01 00     	LD	DE,0001H
+709   0491 3E FF        	LD	A,0FFH
+710   0493              jmp43:
+711   0493 D3 04        	OUT	(04H),A		; SEM SENTIDO P/ V1! A LINHA A2 DE ENDEREÇO NÃO VAI PARA NENHUM PERIFÉRICO!!
+712   0495 41           	LD	B,C
+713   0496 10 02        	DJNZ	049AH
+714   0498 EE 40        	XOR	40H
+715   049A ED 52        	SBC	HL,DE
+716   049C 20 F5        	JR	NZ,jmp43
+717   049E C9           	RET
+718   049F              jmp25:
+719   049F 2A 50 27     	LD	HL,(2750H)
+720   04A2 22 57 27     	LD	(2757H),HL
+721   04A5              jmp44:
+722   04A5 3E FF        	LD	A,0FFH
+723   04A7 D3 03        	OUT	(03H),A		; MULTIPLEXAÇÃO
+724   04A9              jmp47
+725   04A9 3E BF        	LD	A,0BFH
+726   04AB D3 01        	OUT	(01H),A		; DISPLAY
+727   04AD 21 E8 03     	LD	HL,03E8H
+728   04B0              jmp45:
+729   04B0 CD 13 05     	CALL	sub20		;Chama endereço 0517H
+730   04B3 38 F0        	JR	C,jmp44		; 04A9
+731   04B5 2B           	DEC	HL
+732   04B6 7C           	LD	A,H
+733   04B7 B5           	OR	L
+734   04B8 20 F6        	JR	NZ,jmp45		; 04B4
+735   04BA              jmp46:
+736   04BA CD 13 05     	CALL	sub20		;Chama endereço 0517H
+737   04BD 30 FB        	JR	NC,jmp46		; 04BE
+738   04BF 21 50 27     	LD	HL,2750H
+739   04C2 01 07 00     	LD	BC,0007H
+740   04C5 CD 2E 05     	CALL	sub21		;Chama endereço 0532H
+741   04C8 38 DF        	JR	C,jmp47		; 04AD
+742   04CA 01 5C 27     	LD	BC,275CH
+743   04CD 21 50 27     	LD	HL,2750H
+744   04D0 CD 6A 01     	CALL	sub9		;Chama endereço 016EH
+745   04D3 23           	INC	HL
+746   04D4 01 5A 27     	LD	BC,275AH
+747   04D7 CD 6A 01     	CALL	sub9		;Chama endereço 016EH
+748   04DA ED 5B 50 27  	LD	DE,(2750H)
+749   04DE 06 20        	LD	B,20H
+750   04E0 21 5A 27     	LD	HL,275AH
+751   04E3 CD 98 00     	CALL	sub2		;Chama endereço 009CH
+752   04E6 10 FC        	DJNZ	04E4H
+753   04E8 2A 57 27     	LD	HL,(2757H)
+754   04EB 00           	NOP
+755   04EC B7           	OR	A
+756   04ED ED 52        	SBC	HL,DE
+757   04EF C2 A9 04     	JP	NZ,04A9H
+758   04F2 3E FF        	LD	A,0FFH
+759   04F4 D3 03        	OUT	(03H),A		; MULTIPLEXAÇÃO
+760   04F6 3E FE        	LD	A,0FEH
+761   04F8 D3 01        	OUT	(01H),A		; DISPLAY
+762   04FA CD 3D 04     	CALL	sub15		;Chama endereço 0441H
+763   04FD DA 75 05     	JP	C,0575H
+764   0500 CD 2E 05     	CALL	sub21		;Chama endereço 0532H
+765   0503 DA 75 05     	JP	C,0575H
+766   0506 CD 30 04     	CALL	sub14		;Chama endereço 0431H
+767   0509 21 56 27     	LD	HL,2756H
+768   050C BE           	CP	(HL)
+769   050D C2 75 05     	JP	NZ,0575H
+770   0510 C3 7D 05     	JP	057DH
+771   0513              sub20:
+772   0513 11 00 00     	LD	DE,0000H
+773   0516 DB 02        	IN	A,(02H)		; TECLADO
+774   0518 13           	INC	DE
+775   0519 17           	RLA
+776   051A 38 FE        	JR	C,051AH
+777   051C 3E BF        	LD	A,0BFH
+778   051E D3 04        	OUT	(04H),A		; SEM SENTIDO!
+779   0520 DB 02        	IN	A,(02H)		;TECLADO
+780   0522 13           	INC	DE
+781   0523 17           	RLA
+782   0524 30 FE        	JR	NC,0524H
+783   0526 3E FF        	LD	A,0FFH
+784   0528 D3 04        	OUT	(04H),A		; SEM SENTIDO!
+785   052A 7B           	LD	A,E
+786   052B FE 66        	CP	66H
+787   052D C9           	RET
+788   052E              sub21:
+789   052E AF           	XOR	A
+790   052F 08           	EX	AF,AF'
+791   0530 CD 3B 05     	CALL	sub22		;Chama endereço 053FH
+792   0533 73           	LD	(HL),E
+793   0534 ED A1        	CPI
+794   0536 EA 34 05     	JP	PE,0534H
+795   0539 08           	EX	AF,AF'
+796   053A C9           	RET
+797   053B              sub22:
+798   053B CD 4C 05     	CALL	sub23		;Chama endereço 0550H
+799   053E 16 08        	LD	D,08H
+800   0540 CD 4C 05     	CALL	sub23
+801   0543 CB 1B        	RR	E
+802   0545 15           	DEC	D
+803   0546 20 FC        	JR	NZ,0544H
+804   0548 CD 4C 05     	CALL	sub23		;Chama endereço 0550H
+805   054B C9           	RET
+806   054C              sub23:
+807   054C D9           	EXX
+808   054D 21 00 00     	LD	HL,0000H
+809   0550
+810   0550 CD 13 05     	CALL	sub20		;Chama endereço 0517H
+811   0553 14           	INC	D
+812   0554 15           	DEC	D
+813   0555 20 15        	JR	NZ,056CH
+814   0557 38 0A        	JR	C,0563H
+815   0559 2D           	DEC	L
+816   055A 2D           	DEC	L
+817   055B CB C4        	SET	0,H
+818   055D 18 F5        	JR	0554H
+819   055F 2C           	INC	L
+820   0560 CB 44        	BIT	0,H
+821   0562 28 F0        	JR	Z,0554H
+822   0564 CB 15        	RL	L
+823   0566 D9           	EXX
+824   0567 C9           	RET
+825   0568
+826   0568 08           	EX	AF,AF'
+827   0569 37           	SCF
+828   056A 08           	EX	AF,AF'
+829   056B D9           	EXX
+830   056C C9           	RET
+831   056D
+832   056D FF           	RST	38H
+833   056E FF           	RST	38H
+834   056F FF           	RST	38H
+835   0570 FF           	RST	38H
+836   0571              jmp37:
+837   0571 21 85 05     	LD	HL,0585H
+838   0574 CD 98 00     	CALL	sub2
+839   0577 18 FC        	JR	0575H
+840   0579              jmp28:
+841   0579 21 8B 05     	LD	HL,058BH
+842   057C CD 98 00     	CALL	sub2
+843   057F 18 F8        	JR	jmp28		;057d
+844   0581 86           	ADD	A,(HL)
+845   0582 CE CE        	ADC	A,0CEH
+846   0584 C0           	RET	NZ
+847   0585
+848   0585 FF           	RST	38H
+849   0586 FF           	RST	38H
+850   0587
+851   0587 8E           	ADC	A,(HL)		; F
+852   0588 F9           	LD	SP,HL		; I
+853   0589 C8           	RET	Z		; N
+854   058A
+855   058A FF           	RST	38H
+856   058B FF           	RST	38H
+857   058C FF           	RST	38H
+858   058D
+859   058D 8E           	ADC	A,(HL)		; F
+860   058E F9           	LD	SP,HL		; I
+861   058F C7           	RST	00H		; L
+862   0590 86           	ADD	A,(HL)		; E
+863   0591
+864   0591 FF           	RST	38H
+865   0592 FF           	RST	38H
+866   0593
+867   0593 8E           	ADC	A,(HL)		; F
+868   0594 C0           	RET	NZ		; O
+869   0595 C8           	RET	Z		; N
+870   0596 87           	ADD	A,A		; T
+871   0597 86           	ADD	A,(HL)		; E
+872   0598
+873   0598 FF           	RST	38H
+874   0599
+875   0599 8E           	ADC	A,(HL)		; F
+876   059A F9           	LD	SP,HL		; I
+877   059B C8           	RET	Z		; N
+878   059C 88           	ADC	A,B		; A
+879   059D C7           	RST	00H		; L
+880   059E
+881   059E FF           	RST	38H
+882   059F
+# file closed: CEDM-80_reversed.asm
