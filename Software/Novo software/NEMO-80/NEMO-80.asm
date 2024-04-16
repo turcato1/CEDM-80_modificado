@@ -51,7 +51,10 @@ CHR_C           EQU 0C6H
 CHR_D           EQU 0A1H
 CHR_E           EQU 086H
 CHR_F           EQU 08EH
-
+;....
+CHR_N           EQU 0C8H
+CHR_M           EQU 0AAH
+CHR_O           EQU 0C0H
 
 ; I/O addresses
 DISP            EQU 01H
@@ -80,8 +83,9 @@ RAM_STACK_0     EQU 2780H
 RAM_STACK_127   EQU 27FFH
 
 ; Variáveis do programa, do endereço 25FF para trás (128 bytes)
-VAR_VALUE_INS   EQU 25FEH
-VAR_VALUE_IN    EQU 25FFH
+VAR_CURR_DATA   EQU 25FDH
+VAR_CURR_ADDRL  EQU 25FEH
+VAR_CURR_ADDRH  EQU 25FFH
 
 
 ;******** Beggining of monitor program ********
@@ -94,75 +98,120 @@ VAR_VALUE_IN    EQU 25FFH
 ; Inicializações antes do programa
 initialization:
     CALL sys_clean_ram_disp     ; Limpa a memória de exibição no display
-    LD A,00H
-    LD (VAR_VALUE_IN),A
-    LD (VAR_VALUE_INS),A
-
-    ; LD A,CHR_1
-    ; LD (RAM_DISPLAY),A
-    ; LD A,CHR_2
-    ; LD (RAM_DISPLAY+1),A
-    ; LD A,CHR_3
-    ; LD (RAM_DISPLAY+2),A
-    ; LD A,CHR_4
-    ; LD (RAM_DISPLAY+3),A
-    ; LD B,070H
 
 ; Inicio do programa
 ini_program:
-    LD HL,VAR_VALUE_INS
-    CALL sys_in_addr
-    CALL sys_clean_ram_disp
-    LD A,(VAR_VALUE_INS)
-    LD L,A
-    LD A,(VAR_VALUE_IN)
-    LD H,A
-    INC HL
-    INC HL
-    LD A,L
-    LD (VAR_VALUE_INS),A
-    LD A,H
-    LD (VAR_VALUE_IN),A
-prg_loop:
-    LD HL,VAR_VALUE_INS
-    CALL sys_disp_addr
-    JR prg_loop
-    JP ini_program
+    LD A,CHR_N                  ; Mensagem de inicialização NEMO-80
+    LD (RAM_DISPLAY),A
+    LD A,CHR_E                            
+    LD (RAM_DISPLAY+1),A
+    LD A,CHR_M                            
+    LD (RAM_DISPLAY+2),A
+    LD A,CHR_O                            
+    LD (RAM_DISPLAY+3),A
+    LD A,CHR_8                            
+    LD (RAM_DISPLAY+1),A
+    LD A,CHR_0                            
+    LD (RAM_DISPLAY+1),A
+loop_main_menu:                 ; Rotina de menu inicial
+    CALL sys_keyb_disp          ; Exibe mensagem e lê teclado
+    LD A,(RAM_KEYBOARD)
+    RES 7,A
+    CP 10                       ; Se pressionada tecla ADR, chama entrada de endereço
+    CALL Z, menu_in_addr
+    CP 11                       ; Se pressionada tecla DAT, chama entrada de endereço
+    CALL Z, menu_in_data
+    ; IMPLEMENTAÇÃO A CONTINUAR DAQUI! TODO 15/04/2024
+end_main_menu:
+    JR loop_main_menu
+
+
+;     LD HL,VAR_VALUE_INS
+;     CALL sys_in_addr
+;     CALL sys_clean_ram_disp
+;     LD A,(VAR_VALUE_INS)
+;     LD L,A
+;     LD A,(VAR_VALUE_IN)
+;     LD H,A
+;     INC HL
+;     INC HL
+;     LD A,L
+;     LD (VAR_VALUE_INS),A
+;     LD A,H
+;     LD (VAR_VALUE_IN),A
+; prg_loop:
+;     LD HL,VAR_VALUE_INS
+;     CALL sys_disp_addr
+;     JR prg_loop
+;     JP ini_program
 
 
     DB 0H,"SUBROUTINES",0H
 ; ********************** Subroutines ********************** 
 ;
+menu_in_addr:
+    CALL sys_clean_ram_disp
+    LD HL,VAR_CURR_ADDRL
+    CALL sys_in_addr
+    RET
+    LD A,0FFH
+    DB 00H
+
+menu_in_data:
+    LD A,(RAM_DISPLAY+3)
+    CP 0FFH                     ; Verifica se tem alguma coisa no display de endereço (díg. menos significativo)
+    JR Z,end_menu_in_data       ; Se não tiver nada, encerra a chamada do menu de DAT
+    LD A,(VAR_CURR_ADDRL)
+    LD L,A
+    LD A,(VAR_CURR_ADDRH)
+    LD H,A
+    CALL sys_disp_data
+end_menu_in_data:
+    LD A,0FFH
+    RET
+    DB 00H
 
 ; Subrotina de limpeza da area de memoria para o display
 ;
-sys_clean_ram_disp:                 ;Inicializa area de memoria do display
+sys_clean_ram_disp:             ;Inicializa area de memoria do display
     PUSH HL
     PUSH BC
     LD HL,RAM_DISPLAY           ; Inicio da RAM para display
     LD B,06                     ; Preparar ponteiro para 6 endereços a partir do inicio da RAM para display
 .loop_clean_disp:               ; Inicializa area de memoria do display, com FFH (nenhum segmento aceso)
-    LD (HL),0FFH
-    INC HL
-    DJNZ .loop_clean_disp
+    LD (HL),0FFH                ; Limpa a exibição no display escrevendo 0FFH na posição de memória
+    INC HL                      ; Coloca o ponteiro na próxima posição de memória
+    DJNZ .loop_clean_disp       ; Decrementa o reg. B e, se não for zero, continua o loop de limpeza da memória
     POP BC
     POP HL
     RET
     DB 00H
 
-; Subrotina de exibição de dados no campo de endereço (sys_in_addr)
+; Subrotina de exibição de dados no campo de dados (sys_disp_data)
 ; HL (e HL+1) = posição de memória onde está o dado a ser exibido
-sys_disp_addr:
-    PUSH BC
+sys_disp_data:
+    PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
     PUSH DE
-    LD DE,RAM_DISPLAY+3
-    CALL _sys_mem_conv2nibbles
-    INC HL
-    LD DE,RAM_DISPLAY+1
-    CALL _sys_mem_conv2nibbles
+    LD DE,RAM_DISPLAY+5         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
+    CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
     POP DE
     POP BC
-    CALL sys_keyb_disp
+    CALL sys_keyb_disp          ; Exibe no display o valor do endereço
+    RET
+
+; Subrotina de exibição de dados no campo de endereço (sys_disp_addr)
+; HL (e HL+1) = posição de memória onde está o dado a ser exibido
+sys_disp_addr:
+    PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
+    PUSH DE
+    LD DE,RAM_DISPLAY+3         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
+    CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
+    INC HL                      ; Coloca ponteiro HL na próxima posição da variável de dado
+    LD DE,RAM_DISPLAY+1         ; Coloca o ponteiro DE no 2.o display da esq. para a direita
+    CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (MSB) do dado apontado por HL em caracteres para o display
+    POP DE
+    POP BC
+    CALL sys_keyb_disp          ; Exibe no display o valor do endereço
     RET
 
 ; Subrotina auxiliar das subrotinas de exibição no display
@@ -175,7 +224,6 @@ _sys_mem_conv2nibbles
     CALL sys_conv_hexdisp
     LD A,C
     LD (DE),A
-;    LD (RAM_DISPLAY+3),A
     DEC DE
     LD A,(HL)
     SRL A
@@ -185,11 +233,63 @@ _sys_mem_conv2nibbles
     CALL sys_conv_hexdisp
     LD A,C
     LD (DE),A
-;    LD (RAM_DISPLAY+2),A
     RET
     DB 00H
 
-; Subrotina de entrada de dados no campo de endereço (sys_in_addr)
+; Subrotina de entrada de valor no campo de dados (sys_in_data)
+; O software fica preso nessa rotina até que uma tecla de 10 a 17 seja pressionada
+; HL: Definição da primeira área de memória para uso com a entrada de dados (2 dígitos)
+; Teclas de 0 a F = serão reproduzidas no display e atualizam o valor em (HL)
+; Teclas de 10 a 17 = encerram o loop da subrotina, tecla pressionada em RAM_KEYB_CONV
+;       If !(keypress.bit7) then RST keyprsmem.bit7
+;       If  (keypress.bit7) &&  (keyprsmem.bit7) then end
+;       If  (keypress.bit7) && !(keyprsmem.bit7) then SET keyprsmem.bit7 and process the input
+sys_in_data:
+    PUSH BC                     ; Guarda na pilha valor atual de BC para poder usar BC na subrotina
+    LD A,0FFH
+    LD (RAM_DISPLAY+4),A        ; Limpa memória de exibição do 5.o display de endereçamento
+    LD (RAM_DISPLAY+5),A        ; Limpa memória de exibição do 6.o display de endereçamento
+    LD A,00H
+    LD (RAM_DRAFT1),A
+.in_data_input_loop:
+    CALL sys_keyb_disp          ; Chama atualização do display e teclado
+    LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+    BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
+    JR Z,.in_data_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
+    LD A,(RAM_DRAFT1)           ; Recupera memória de tecla pressionada (keyprsmem)
+    BIT 7,A                     ; Testa bit 7, sinalizador de tecla pressionada anteriormente (keyprsmem.bit7)
+    JR NZ,.in_data_input_loop   ; bit 7 memória não zero (setado): não faz nada, finaliza a subrotina
+    SET 7,A                     ; Seta bit 7 e segue com o processamento da tecla pressionada
+    LD (RAM_DRAFT1),A           ; Salva na memória de tecla pressionada (keyprsmem), que há uma tecla pressionada (bit 7 setado)
+    LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+    RES 7,A                     ; Reseta o bit 7 no registrador A para testar se a tecla é numérica ou de função
+    CP 10H                      ; Compara o código da tecla com 10H (16)
+    JR C,.in_data_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
+    JR .in_data_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
+.in_data_num_key:
+    CALL sys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
+    CALL sys_shift_disp_left    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+                                ; Atualização do valor na variável apontada por HL, suponha dado 8 bits = "XY"
+    LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
+    LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "XY"
+    SLA A                       ; Desloca parte menos significativa para esquerda -> A = "Y0"
+    SLA A
+    SLA A
+    SLA A
+    OR C                        ; Combina valor digitado com valor deslocado -> "Y0" OR "0K" = "YK"
+    LD (HL),A                   ; Guarda valor combinado na parte menos significativa. Resultado final = "YK"
+    JR .in_data_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+.in_data_rst_keyprsmem:
+    LD A,(RAM_DRAFT1)           ; HL contém a posição de memória da variável de sistema
+    RES 7,A                     ; Reseta o bit 7, sinalizador de tecla pressionada anteriormente
+    LD (RAM_DRAFT1),A           ; Grava de volta na memória de sinalização de tecla pressionada anteriormente
+    JR .in_data_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+.in_data_end:
+    POP BC                      ; Recupera registrador BC
+    RET
+    DB 00H
+
+; Subrotina de entrada de valor no campo de endereço (sys_in_addr)
 ; O software fica preso nessa rotina até que uma tecla de 10 a 17 seja pressionada
 ; HL: Definição da primeira área de memória para uso com a entrada de dados
 ;    (4 dígitos, sequencia little endian)
@@ -200,25 +300,30 @@ _sys_mem_conv2nibbles
 ;       If  (keypress.bit7) && !(keyprsmem.bit7) then SET keyprsmem.bit7 and process the input
 sys_in_addr:
     PUSH BC                     ; Guarda na pilha valor atual de BC para poder usar BC na subrotina
-    CALL sys_clean_ram_disp     ; Limpa a memória de exibição no display
+    LD A,0FFH
+    LD (RAM_DISPLAY),A          ; Limpa memória de exibição do 1.o display de endereçamento
+    LD (RAM_DISPLAY+1),A        ; Limpa memória de exibição do 2.o display de endereçamento
+    LD (RAM_DISPLAY+2),A        ; Limpa memória de exibição do 3.o display de endereçamento
+    LD (RAM_DISPLAY+3),A        ; Limpa memória de exibição do 4.o display de endereçamento
+;    CALL sys_clean_ram_disp     ; Limpa a memória de exibição no display
     LD A,00H
     LD (RAM_DRAFT1),A
-.in_input_loop:
+.in_addr_input_loop:
     CALL sys_keyb_disp          ; Chama atualização do display e teclado
     LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
     BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
-    JR Z,.in_reset_keyprsmem    ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
+    JR Z,.in_addr_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
     LD A,(RAM_DRAFT1)           ; Recupera memória de tecla pressionada (keyprsmem)
     BIT 7,A                     ; Testa bit 7, sinalizador de tecla pressionada anteriormente (keyprsmem.bit7)
-    JR NZ,.in_input_loop        ; bit 7 memória não zero (setado): não faz nada, finaliza a subrotina
+    JR NZ,.in_addr_input_loop   ; bit 7 memória não zero (setado): não faz nada, finaliza a subrotina
     SET 7,A                     ; Seta bit 7 e segue com o processamento da tecla pressionada
     LD (RAM_DRAFT1),A           ; Salva na memória de tecla pressionada (keyprsmem), que há uma tecla pressionada (bit 7 setado)
     LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
-    RES 7,A
-    CP 10H
-    JR C,.in_num_key
-    JR .in_addr_end
-.in_num_key:
+    RES 7,A                     ; Reseta o bit 7 no registrador A para testar se a tecla é numérica ou de função
+    CP 10H                      ; Compara o código da tecla com 10H (16)
+    JR C,.in_addr_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
+    JR .in_addr_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
+.in_addr_num_key:
     CALL sys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
     CALL sys_shift_disp_left    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
                                 ; Atualização do valor na variável apontada por HL, suponha dado 16 bits = "WX YZ"
@@ -247,12 +352,12 @@ sys_in_addr:
     SLA A
     OR C                        ; Combina valor digitado com valor deslocado -> "Z0" OR "0K" = "ZK"
     LD (HL),A                   ; Guarda valor combinado na parte menos significativa. Resultado final = "XYZK"
-    JR .in_input_loop
-.in_reset_keyprsmem:
+    JR .in_addr_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+.in_addr_rst_keyprsmem:
     LD A,(RAM_DRAFT1)           ; HL contém a posição de memória da variável de sistema
     RES 7,A                     ; Reseta o bit 7, sinalizador de tecla pressionada anteriormente
     LD (RAM_DRAFT1),A           ; Grava de volta na memória de sinalização de tecla pressionada anteriormente
-    JR .in_input_loop
+    JR .in_addr_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
 .in_addr_end:
     POP BC                      ; Recupera registrador BC
     RET
