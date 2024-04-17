@@ -1,14 +1,23 @@
+---- TODO ----
+
+- Criar uma rotina de loop tecla apertada, tecla solta
+- Operação da tecla +
+- Operação da tecla -
+- Operação da tecla GO
+- Operação da tecla REG
+- Operação da tecla IV
+
+
+---- DONE ----
+- Operação da tecla ADR
+- Operação da tecla DAT
+
+---------------
+
 Programa Monitor NEMO-80 (New Monitor Z80)
 
 1- Permite entrada de programa em formato de opcodes
 2- Permite visualizar o valor dos registradores no momento atual
-
-
-
-
-
-
-
 
 
 

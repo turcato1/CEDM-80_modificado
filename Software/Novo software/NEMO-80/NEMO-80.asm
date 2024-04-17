@@ -110,66 +110,71 @@ ini_program:
     LD A,CHR_O                            
     LD (RAM_DISPLAY+3),A
     LD A,CHR_8                            
-    LD (RAM_DISPLAY+1),A
+    LD (RAM_DISPLAY+4),A
     LD A,CHR_0                            
-    LD (RAM_DISPLAY+1),A
+    LD (RAM_DISPLAY+5),A
+
 loop_main_menu:                 ; Rotina de menu inicial
-    CALL sys_keyb_disp          ; Exibe mensagem e lê teclado
-    LD A,(RAM_KEYBOARD)
+    CALL sys_keyb_disp
+    LD A,(RAM_KEYB_CONV)
     RES 7,A
-    CP 10                       ; Se pressionada tecla ADR, chama entrada de endereço
-    CALL Z, menu_in_addr
-    CP 11                       ; Se pressionada tecla DAT, chama entrada de endereço
-    CALL Z, menu_in_data
+    CP 10H                       ; Se pressionada tecla ADR, chama entrada de endereço
+    CALL Z, menu_addr
     ; IMPLEMENTAÇÃO A CONTINUAR DAQUI! TODO 15/04/2024
-end_main_menu:
     JR loop_main_menu
-
-
-;     LD HL,VAR_VALUE_INS
-;     CALL sys_in_addr
-;     CALL sys_clean_ram_disp
-;     LD A,(VAR_VALUE_INS)
-;     LD L,A
-;     LD A,(VAR_VALUE_IN)
-;     LD H,A
-;     INC HL
-;     INC HL
-;     LD A,L
-;     LD (VAR_VALUE_INS),A
-;     LD A,H
-;     LD (VAR_VALUE_IN),A
-; prg_loop:
-;     LD HL,VAR_VALUE_INS
-;     CALL sys_disp_addr
-;     JR prg_loop
-;     JP ini_program
-
 
     DB 0H,"SUBROUTINES",0H
 ; ********************** Subroutines ********************** 
 ;
-menu_in_addr:
+menu_addr:
     CALL sys_clean_ram_disp
+menu_addr_iskeyrls:
+    CALL sys_keyb_disp
+    LD A,(RAM_KEYB_CONV)
+    BIT 7,A
+    JR Z, menu_addr_in
+    JR menu_addr_iskeyrls
+menu_addr_in:
+    LD A,00H
+    LD (VAR_CURR_ADDRL),A
+    LD (VAR_CURR_ADDRH),A
     LD HL,VAR_CURR_ADDRL
     CALL sys_in_addr
-    RET
-    LD A,0FFH
-    DB 00H
-
-menu_in_data:
+wait_data:
+    CALL sys_keyb_disp
+    LD A,(RAM_KEYB_CONV)
+    BIT 7,A
+    JR Z, wait_data
+    RES 7,A
+    CP 11H                       ; Se pressionada tecla DAT, chama entrada de endereço
+    JR Z, disp_in_data
+    JR menu_addr_end
+disp_in_data:
+    CALL sys_disp_addr
     LD A,(RAM_DISPLAY+3)
     CP 0FFH                     ; Verifica se tem alguma coisa no display de endereço (díg. menos significativo)
-    JR Z,end_menu_in_data       ; Se não tiver nada, encerra a chamada do menu de DAT
+    JR Z,menu_addr_end          ; Se não tiver nada, encerra a chamada do menu de DAT
     LD A,(VAR_CURR_ADDRL)
     LD L,A
     LD A,(VAR_CURR_ADDRH)
     LD H,A
+menu_data_disp:
     CALL sys_disp_data
-end_menu_in_data:
+    LD A,(RAM_KEYB_CONV)
+    BIT 7,A
+    JR Z, menu_data_iskeyprs
+    JR menu_data_disp
+menu_data_iskeyprs:
+    CALL sys_disp_data
+    LD A,(RAM_KEYB_CONV)
+    BIT 7,A
+    JR Z, menu_data_iskeyprs
+    CALL sys_in_data
+menu_addr_end:
     LD A,0FFH
     RET
     DB 00H
+
 
 ; Subrotina de limpeza da area de memoria para o display
 ;
@@ -268,7 +273,7 @@ sys_in_data:
     JR .in_data_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
 .in_data_num_key:
     CALL sys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
-    CALL sys_shift_disp_left    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+    CALL sys_sftl_data_disp     ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
                                 ; Atualização do valor na variável apontada por HL, suponha dado 8 bits = "XY"
     LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
     LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "XY"
@@ -325,7 +330,7 @@ sys_in_addr:
     JR .in_addr_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
 .in_addr_num_key:
     CALL sys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
-    CALL sys_shift_disp_left    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+    CALL sys_sftl_addr_disp    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
                                 ; Atualização do valor na variável apontada por HL, suponha dado 16 bits = "WX YZ"
     LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
     INC HL                      ; Vai para a parte mais significativa dos 16 bits
@@ -383,9 +388,9 @@ sys_conv_hexdisp:
     RET
     DB 00H
 
-; Sub-subrotina de deslocamento da memória do display (RAM_DISPLAY) em 1 dígito para esquerda
+; Sub-subrotina de deslocamento da memória do display de endereço (RAM_DISPLAY) em 1 dígito para esquerda
 ; C = valor a ser inserido
-sys_shift_disp_left:
+sys_sftl_addr_disp:
     PUSH HL
     PUSH DE
     PUSH BC
@@ -394,6 +399,31 @@ sys_shift_disp_left:
     LD E,L
     INC HL
     LD C,03
+    LD B,00
+    LDIR
+    INC DE
+    POP BC
+    PUSH AF
+    DEC HL
+    LD A,C
+    LD (HL),A
+    POP AF
+    POP DE
+    POP HL
+    RET
+    DB 00H
+
+; Sub-subrotina de deslocamento da memória do display de dados (RAM_DISPLAY+4) em 1 dígito para esquerda
+; C = valor a ser inserido
+sys_sftl_data_disp:
+    PUSH HL
+    PUSH DE
+    PUSH BC
+    LD HL,RAM_DISPLAY+4
+    LD D,H
+    LD E,L
+    INC HL
+    LD C,01
     LD B,00
     LDIR
     INC DE
@@ -465,7 +495,7 @@ sys_keyb_disp:
     JP Z,.keyb_disp_num_6
     CP 128
     JP Z,.keyb_disp_num_7
-    RET
+    JR .wr_display
 .keyb_disp_num_0:
     LD A,00H
     LD B,A
