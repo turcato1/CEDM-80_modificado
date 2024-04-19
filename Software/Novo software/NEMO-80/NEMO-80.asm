@@ -83,10 +83,11 @@ RAM_STACK_0     EQU 2780H
 RAM_STACK_127   EQU 27FFH
 
 ; Variáveis do programa, do endereço 25FF para trás (128 bytes)
+VAR_TEST        EQU 25FCH
+
 VAR_CURR_DATA   EQU 25FDH
 VAR_CURR_ADDRL  EQU 25FEH
 VAR_CURR_ADDRH  EQU 25FFH
-
 
 ;******** Beggining of monitor program ********
     ORG ROMBEGIN
@@ -116,9 +117,9 @@ ini_program:
 
 loop_main_menu:                 ; Rotina de menu inicial
     CALL sys_keyb_disp
-    LD A,(RAM_KEYB_CONV)
-    RES 7,A
-    CP 10H                       ; Se pressionada tecla ADR, chama entrada de endereço
+    LD A,(RAM_KEYB_CONV)        ; Lê memória de tecla pressionada
+    RES 7,A                     ; Reseta o bit indicador de tecla pressionada
+    CP 10H                      ; Se pressionada tecla ADR, chama entrada de endereço
     CALL Z, menu_addr
     ; IMPLEMENTAÇÃO A CONTINUAR DAQUI! TODO 15/04/2024
     JR loop_main_menu
@@ -126,69 +127,79 @@ loop_main_menu:                 ; Rotina de menu inicial
     DB 0H,"SUBROUTINES",0H
 ; ********************** Subroutines ********************** 
 ;
+
+; Subrotina de edição/exibição da memória
 menu_addr:
-    CALL sys_clean_ram_disp
-menu_addr_iskeyrls:
-    CALL sys_keyb_disp
-    LD A,(RAM_KEYB_CONV)
-    BIT 7,A
-    JR Z, menu_addr_in
-    JR menu_addr_iskeyrls
+    CALL sys_clean_ram_disp     ; Limpa a memória do display
+    CALL sys_wait_keyrelease    ; Aguarda a tecla ADR ser solta
 menu_addr_in:
-    LD A,00H
+    LD A,00H                    ; Zera as variáveis de posição de memória a ser lida ou alterada
     LD (VAR_CURR_ADDRL),A
     LD (VAR_CURR_ADDRH),A
-    LD HL,VAR_CURR_ADDRL
-    CALL sys_in_addr
-wait_data:
-    CALL sys_keyb_disp
-    LD A,(RAM_KEYB_CONV)
-    BIT 7,A
-    JR Z, wait_data
-    RES 7,A
-    CP 11H                       ; Se pressionada tecla DAT, chama entrada de endereço
-    JR Z, disp_in_data
-    JR menu_addr_end
-disp_in_data:
-    CALL sys_disp_addr
-    LD A,(RAM_DISPLAY+3)
-    CP 0FFH                     ; Verifica se tem alguma coisa no display de endereço (díg. menos significativo)
-    JR Z,menu_addr_end          ; Se não tiver nada, encerra a chamada do menu de DAT
-    LD A,(VAR_CURR_ADDRL)
-    LD L,A
-    LD A,(VAR_CURR_ADDRH)
-    LD H,A
-menu_data_disp:
-    CALL sys_disp_data
-    LD A,(RAM_KEYB_CONV)
-    BIT 7,A
-    JR Z, menu_data_iskeyprs
-    JR menu_data_disp
-menu_data_iskeyprs:
-    CALL sys_disp_data
-    LD A,(RAM_KEYB_CONV)
-    BIT 7,A
-    JR Z, menu_data_iskeyprs
-    CALL sys_in_data
+    LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+    CALL sys_in_addr            ; Chama a rotina de entrada de valor do endereço
+menu_wait_keypress:
+    CALL sys_wait_keypress      ; Depois da entrada do endereço, aguarda tecla DAT para entrada de dados ser pressionada ou outra para sair
+    RES 7,A                     ; Reseta o bit de tecla pressionada do reg. A
+    CP 11H                      ; Se pressionada tecla DAT, vai para rotina de entrada de dado
+    JR Z, menu_addr_data
+    CP 12H                      ; Se pressionada tecla "-", vai para rotina de decremento do endereço exibido
+    JR Z, menu_addr_minus
+    JR menu_addr_isplus         ; Se a tecla pressionada não foi "-", verifica se foi pressionado "+"
+menu_addr_minus:                ; Rotina de decremento do endereço exibido
+    LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
+    DEC HL                      ; Decrementa o valor do endereço exibido usando HL
+    LD (VAR_CURR_ADDRL),HL      ; Escreve o valor decrementado na váriavel de endereço exibido
+    CALL sys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "-" pressionada
+    LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+    JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
+menu_addr_isplus:
+    CP 13H                      ; Se pressionada tecla "+", vai para rotina de incremento do endereço exibido
+    JR Z, menu_addr_plus        
+    JR menu_addr_isgo           ; Se a tecla pressionada não foi "-", verifica se foi pressionado "GO"
+menu_addr_plus:                 ; Rotina de incremento do endereço obtido
+    LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
+    INC HL                      ; Incrementa o valor do endereço exibido usando HL
+    LD (VAR_CURR_ADDRL),HL      ; Escreve o valor incrementado na váriavel de endereço exibido
+    CALL sys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "+" pressionada
+    LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+    JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
+menu_addr_isgo:
+    CP 14H                      ; Se pressionada tecla "GO", chama execução no endereço atual
+    JR Z, menu_addr_go
+    JR menu_addr_otherkey       ; Se a tecla pressionada não foi nenhuma das anteriores, sai do menu de endereço e volta para o menu inicial
+menu_addr_go:                   ; Rotina da tecla "GO" de execução do programa a partir do endereço exibido
+    LD HL,(VAR_CURR_ADDRL)      ; Carrega o endereço exibido em HL para execução
+    JP HL                       ; Salta a execução para o endereço exibido
+menu_addr_otherkey:
+    JR menu_addr_end            ; Se outra tecla foi pressionada, que não seja "DAT", "+", "-" ou "GO", finaliza a entrada de endereço
+menu_addr_data:
+    LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+    CALL sys_disp_addr          ; Exibe o endereço/posição de memória carregado
+    LD HL,(VAR_CURR_ADDRL)      ; Carrega o endereço exibido para referenciar com o dado nele existente
+    CALL sys_disp_data          ; Exibe o dado contido no endereço exibido
+    CALL sys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "DAT" pressionada
+    CALL sys_wait_keypress      ; Aguarda o usuário pressionar alguma tecla para iniciar o processo de entrada de novo dado ou sair do menu
+    CALL sys_in_data            ; Processa a entrada de dado para o endereço exibido
+    JR menu_wait_keypress       ; Quando finalizada a entrada, volta para o inicio do menu de endereço para testar próxima tecla pressionada
 menu_addr_end:
-    LD A,0FFH
-    RET
+    LD A,0FFH                   ; Carrega FFH em A, para escapar de próximas condições de tecla pressionada do menu principal
+    RET                         ; Volta para o menu principal
     DB 00H
-
 
 ; Subrotina de limpeza da area de memoria para o display
 ;
 sys_clean_ram_disp:             ;Inicializa area de memoria do display
-    PUSH HL
-    PUSH BC
+    PUSH HL                     ; Reserva HL
+    PUSH BC                     ; Reserva BC
     LD HL,RAM_DISPLAY           ; Inicio da RAM para display
     LD B,06                     ; Preparar ponteiro para 6 endereços a partir do inicio da RAM para display
 .loop_clean_disp:               ; Inicializa area de memoria do display, com FFH (nenhum segmento aceso)
     LD (HL),0FFH                ; Limpa a exibição no display escrevendo 0FFH na posição de memória
     INC HL                      ; Coloca o ponteiro na próxima posição de memória
     DJNZ .loop_clean_disp       ; Decrementa o reg. B e, se não for zero, continua o loop de limpeza da memória
-    POP BC
-    POP HL
+    POP BC                      ; Retoma valor reservado de BC
+    POP HL                      ; Retoma valor reservado de HL
     RET
     DB 00H
 
@@ -196,11 +207,11 @@ sys_clean_ram_disp:             ;Inicializa area de memoria do display
 ; HL (e HL+1) = posição de memória onde está o dado a ser exibido
 sys_disp_data:
     PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
-    PUSH DE
+    PUSH DE                     ; Reserva o valor de DE
     LD DE,RAM_DISPLAY+5         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
     CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
-    POP DE
-    POP BC
+    POP DE                      ; Retoma valor reservado de DE
+    POP BC                      ; Retoma valor reservado de BC
     CALL sys_keyb_disp          ; Exibe no display o valor do endereço
     RET
 
@@ -208,14 +219,14 @@ sys_disp_data:
 ; HL (e HL+1) = posição de memória onde está o dado a ser exibido
 sys_disp_addr:
     PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
-    PUSH DE
+    PUSH DE                     ; Reserva o valor de DE
     LD DE,RAM_DISPLAY+3         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
     CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
     INC HL                      ; Coloca ponteiro HL na próxima posição da variável de dado
     LD DE,RAM_DISPLAY+1         ; Coloca o ponteiro DE no 2.o display da esq. para a direita
     CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (MSB) do dado apontado por HL em caracteres para o display
-    POP DE
-    POP BC
+    POP DE                      ; Retoma valor reservado de DE
+    POP BC                      ; Retoma valor reservado de BC
     CALL sys_keyb_disp          ; Exibe no display o valor do endereço
     RET
 
@@ -224,11 +235,11 @@ sys_disp_addr:
 ; HL - Posição de entrada do dado a ser separado em nibbles
 ; DE - Posição mais alta para escrita dos dados convertidos para display
 _sys_mem_conv2nibbles
-    LD A,(HL)
-    AND 0FH
-    CALL sys_conv_hexdisp
-    LD A,C
-    LD (DE),A
+    LD A,(HL)                   ; Lê o valor contido na posição de memória apontada por HL
+    AND 0FH                     ; Filtra apenas a parte menos signicativa
+    CALL sys_conv_hexdisp       ; Converte a parte filtrada de hexa para o código de exibição no display
+    LD A,C                      ; O código de exibição é devolvido em C. Transfere-o para A.
+    LD (DE),A                   ; Carrega o valor convertido para o display na posição apontada por DE
     DEC DE
     LD A,(HL)
     SRL A
@@ -239,6 +250,26 @@ _sys_mem_conv2nibbles
     LD A,C
     LD (DE),A
     RET
+    DB 00H
+
+; Subrotina para aguardar em loop uma tecla ser pressionada
+; A : Código da tecla + bit de tecla pressionada
+sys_wait_keypress
+    CALL sys_keyb_disp          ; Exibe display e lê teclado
+    LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
+    BIT 7,A                     ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
+    JR Z,sys_wait_keypress      ; Fica em loop até uma tecla ser pressionada
+    RET
+    DB 00H
+
+; Subrotina para aguardar em loop uma tecla ser solta
+; A : Código da tecla + bit de tecla pressionada
+sys_wait_keyrelease
+    CALL sys_keyb_disp          ; Exibe display e lê teclado
+    LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
+    BIT 7,A
+    RET Z                       ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
+    JR sys_wait_keyrelease      ; Fica em loop até uma tecla ser pressionada
     DB 00H
 
 ; Subrotina de entrada de valor no campo de dados (sys_in_data)
@@ -606,3 +637,19 @@ DB_NUMCHAR EQU $
     DB      0FFH                ; Tecla especial 6
     DB      0FFH                ; Tecla especial 7
     DB      0FFH                ; Tecla especial 8
+
+    LD A,00H
+    LD (VAR_TEST),A
+    CALL sys_clean_ram_disp
+    CALL sys_keyb_disp
+loop_test_inc:
+    LD A,(VAR_TEST)
+    INC A
+    LD (VAR_TEST),A
+    LD HL,VAR_TEST
+    LD B,20
+loop_test_disp:
+    CALL sys_disp_data
+    DJNZ loop_test_disp
+    JR loop_test_inc
+    HALT

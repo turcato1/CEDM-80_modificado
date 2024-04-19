@@ -1,9 +1,5 @@
 ---- TODO ----
 
-- Criar uma rotina de loop tecla apertada, tecla solta
-- Operação da tecla +
-- Operação da tecla -
-- Operação da tecla GO
 - Operação da tecla REG
 - Operação da tecla IV
 
@@ -11,6 +7,10 @@
 ---- DONE ----
 - Operação da tecla ADR
 - Operação da tecla DAT
+- Rotina de loop tecla apertada, tecla solta
+- Operação da tecla +
+- Operação da tecla -
+- Operação da tecla GO
 
 ---------------
 
