@@ -63,7 +63,7 @@ CHR_EQUAL       EQU 0B7H
 
 ; Endereços de I/O (I/O ports)
 DISP            EQU 01H
-SEL_DISP        EQU 03H
+SEL_DISP        EQU 02H ;03H
 KEYB            EQU 01H
 
 ; Constantes indicativas de endereços de memória

@@ -64,7 +64,7 @@
  63   0000
  64   0000              ; Endereços de I/O (I/O ports)
  65   0000              DISP            EQU 01H
- 66   0000              SEL_DISP        EQU 03H
+ 66   0000              SEL_DISP        EQU 02H ;03H
  67   0000              KEYB            EQU 01H
  68   0000
  69   0000              ; Constantes indicativas de endereços de memória
@@ -731,7 +731,7 @@
 727   03D7 3E 01            LD A,01H                    ; Ajusta A para apontar para a primeira coluna de displays (mais significativa)
 728   03D9 21 70 27         LD HL,RAM_DISPLAY           ; Carrega no ponteiro HL primeiro endereço da RAM de sistema para o display
 729   03DC              .keyb_disp_loop:
-730   03DC D3 03            OUT (SEL_DISP),A            ; Seleciona display apontado por A
+730   03DC D3 02            OUT (SEL_DISP),A            ; Seleciona display apontado por A
 731   03DE 4F               LD C,A                      ; Guarda o valor de A
 732   03DF 3E FF            LD A,0FFH
 733   03E1 D3 01            OUT (DISP),A

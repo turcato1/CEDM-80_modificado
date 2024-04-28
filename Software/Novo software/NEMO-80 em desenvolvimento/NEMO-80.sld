@@ -73,8 +73,8 @@ NEMO-80.asm|62||0|-1|183|D|CHR_EQUAL
 NEMO-80.asm|62||0|-1|183|L|,CHR_EQUAL,,+equ,+used
 NEMO-80.asm|65||0|-1|1|D|DISP
 NEMO-80.asm|65||0|-1|1|L|,DISP,,+equ,+used
-NEMO-80.asm|66||0|-1|3|D|SEL_DISP
-NEMO-80.asm|66||0|-1|3|L|,SEL_DISP,,+equ,+used
+NEMO-80.asm|66||0|-1|2|D|SEL_DISP
+NEMO-80.asm|66||0|-1|2|L|,SEL_DISP,,+equ,+used
 NEMO-80.asm|67||0|-1|1|D|KEYB
 NEMO-80.asm|67||0|-1|1|L|,KEYB,,+equ,+used
 NEMO-80.asm|74||0|-1|9728|D|RAM_SYS_START
