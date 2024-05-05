@@ -12,6 +12,8 @@
 *.log
 *.dbk
 *.lbk
+*.doc
+*.docx
 
 # Packages #
 ############
@@ -28,6 +30,8 @@
 
 # Directories #
 ###############
+_old
+tests
 
 # OS generated files #
 ######################

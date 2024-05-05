@@ -63,7 +63,7 @@ CHR_EQUAL       EQU 0B7H
 
 ; Endereços de I/O (I/O ports)
 DISP            EQU 01H
-SEL_DISP        EQU 02H ;03H
+SEL_DISP        EQU 03H
 KEYB            EQU 01H
 
 ; Constantes indicativas de endereços de memória
@@ -832,11 +832,11 @@ sys_keyb_disp:
 sys_delay_ms:
     PUSH AF
 .delay_mult:
-    LD A, B
+    LD A,B
     LD B, 152                ;Number of loops adjusted to A = delay ms with minimum error
 .delay_1ms:
     DJNZ .delay_1ms
-    LD B, A
+    LD B,A
     DJNZ .delay_mult
     POP AF
     RET
