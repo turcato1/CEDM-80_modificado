@@ -61,6 +61,35 @@ CHR_T           EQU 087H
 CHR_U           EQU 0C1H
 CHR_EQUAL       EQU 0B7H
 
+
+; Constantes dos códigos das teclas, devolvido pela subrotina "sys_keyb_disp"
+; (essas constantes foram consideradas SEM o bit 7 setado - indicador de tecla pressionada)
+KEY_0           EQU 000H
+KEY_1           EQU 001H
+KEY_2           EQU 002H
+KEY_3           EQU 003H
+KEY_4           EQU 004H
+KEY_5           EQU 005H
+KEY_6           EQU 006H
+KEY_7           EQU 007H
+KEY_8           EQU 008H
+KEY_9           EQU 009H
+KEY_A           EQU 00AH
+KEY_B           EQU 00BH
+KEY_C           EQU 00CH
+KEY_D           EQU 00DH
+KEY_E           EQU 00EH
+KEY_F           EQU 00FH
+KEY_ADR         EQU 010H
+KEY_DAT         EQU 011H
+KEY_MINUS       EQU 012H
+KEY_PLUS        EQU 013H
+KEY_GO          EQU 014H
+KEY_REG         EQU 015H
+KEY_IV          EQU 016H
+KEY_EMPTY       EQU 017H
+
+
 ; Endereços de I/O (I/O ports)
 DISP            EQU 01H
 SEL_DISP        EQU 03H
@@ -160,7 +189,7 @@ loop_main_menu:                 ; Rotina de menu inicial
 ;
 ; Vetores padronizados para chamada de interrupção
 
-; Chamadas de sistema (sys)
+; Chamadas de sistema (sys) acessiveis ao usuário
 sys_clean_ram_disp:
     JP  isys_clean_ram_disp      ; CALL 0100H
 sys_disp_data:
@@ -221,8 +250,8 @@ imenu_reg:
     LD A,(HL)                   ; Extrai o valor da posição na pilha
     LD (VAR_REG_F),A            ; Guarda o valor de F na memória
     POP AF
-    CALL isys_wait_keyrelease    ; Aguarda o usuário soltar o botão REG
-    CALL isys_clean_ram_disp     ; Limpa a exibição no display
+    CALL isys_wait_keyrelease   ; Aguarda o usuário soltar o botão REG
+    CALL isys_clean_ram_disp    ; Limpa a exibição no display
     LD A,00H                    ; Zera a posição de memória DRAFT2, que será usada de rascunho
     LD (RAM_DRAFT2),A
 .imenu_reg_a:                    
@@ -230,122 +259,122 @@ imenu_reg:
     LD (RAM_DISPLAY+3),A
     LD A,(RAM_DRAFT2)           ; RAM_DRAFT2 contém qual o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
     CP 00H
-    JR NZ,.imenu_reg_b           ; Se o item atual a exibir não for A, segue para testar se é B
-    LD C,CHR_A
-    LD HL,VAR_REG_A
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_b          ; Se o item atual a exibir não for A, segue para testar se é B
+    LD C,CHR_A                  ; Carrega o código do caracter "A" em C para exibição no display
+    LD HL,VAR_REG_A             ; Carrega em HL o endereço onde está o valor salvo do acumulador (A)
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_b:
     CP 01H
-    JR NZ,.imenu_reg_c           ; Se o item atual a exibir não for B, segue para testar se é C
-    LD C,CHR_B
-    LD HL,VAR_REG_B
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_c          ; Se o item atual a exibir não for B, segue para testar se é C
+    LD C,CHR_B                  ; Carrega o código do caracter "B" em C para exibição no display
+    LD HL,VAR_REG_B             ; Carrega em HL o endereço onde está o valor salvo do registrador B
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_c:
     CP 02H
-    JR NZ,.imenu_reg_d           ; Se o item atual a exibir não for C, segue para testar se é D
-    LD C,CHR_C
-    LD HL,VAR_REG_C
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_d          ; Se o item atual a exibir não for C, segue para testar se é D
+    LD C,CHR_C                  ; Carrega o código do caracter "C" em C para exibição no display
+    LD HL,VAR_REG_C             ; Carrega em HL o endereço onde está o valor salvo do registrador C
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_d:
     CP 03H
-    JR NZ,.imenu_reg_e           ; Se o item atual a exibir não for D, segue para testar se é E
-    LD C,CHR_D
-    LD HL,VAR_REG_D
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_e          ; Se o item atual a exibir não for D, segue para testar se é E
+    LD C,CHR_D                  ; Carrega o código do caracter "D" em C para exibição no display
+    LD HL,VAR_REG_D             ; Carrega em HL o endereço onde está o valor salvo do registrador D
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_e:
     CP 04H
-    JR NZ,.imenu_reg_f           ; Se o item atual a exibir não for E, segue para testar se é F
-    LD C,CHR_E
-    LD HL,VAR_REG_E
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_f          ; Se o item atual a exibir não for E, segue para testar se é F
+    LD C,CHR_E                  ; Carrega o código do caracter "E" em C para exibição no display
+    LD HL,VAR_REG_E             ; Carrega em HL o endereço onde está o valor salvo do registrador E
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_f:
     CP 05H
-    JR NZ,.imenu_reg_h           ; Se o item atual a exibir não for F, segue para testar se é H
-    LD C,CHR_F
-    LD HL,VAR_REG_F
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_h          ; Se o item atual a exibir não for F, segue para testar se é H
+    LD C,CHR_F                  ; Carrega o código do caracter "F" em C para exibição no display
+    LD HL,VAR_REG_F             ; Carrega em HL o endereço onde está o valor salvo do registrador F
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_h:
     CP 06H
-    JR NZ,.imenu_reg_l           ; Se o item atual a exibir não for H, segue para testar se é L
-    LD C,CHR_H
-    LD HL,VAR_REG_H
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_l          ; Se o item atual a exibir não for H, segue para testar se é L
+    LD C,CHR_H                  ; Carrega o código do caracter "H" em C para exibição no display
+    LD HL,VAR_REG_H             ; Carrega em HL o endereço onde está o valor salvo do registrador H
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_l:
     CP 07H
-    JR NZ,.imenu_reg_i           ; Se o item atual a exibir não for L, segue para testar se é I
-    LD C,CHR_L
-    LD HL,VAR_REG_L
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_i          ; Se o item atual a exibir não for L, segue para testar se é I
+    LD C,CHR_L                  ; Carrega o código do caracter "L" em C para exibição no display
+    LD HL,VAR_REG_L             ; Carrega em HL o endereço onde está o valor salvo do registrador L
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_i:
     CP 08H
-    JR NZ,.imenu_reg_r           ; Se o item atual a exibir não for I, segue para testar se é R
-    LD C,CHR_I
-    LD HL,VAR_REG_I
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_r          ; Se o item atual a exibir não for I, segue para testar se é R
+    LD C,CHR_I                  ; Carrega o código do caracter "I" em C para exibição no display
+    LD HL,VAR_REG_I             ; Carrega em HL o endereço onde está o valor salvo do registrador I
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_r:
     CP 09H
-    JR NZ,.imenu_reg_sp          ; Se o item atual a exibir não for R, segue para testar se é SP
-    LD C,CHR_R
-    LD HL,VAR_REG_R
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin
+    JR NZ,.imenu_reg_sp         ; Se o item atual a exibir não for R, segue para testar se é SP
+    LD C,CHR_R                  ; Carrega o código do caracter "R" em C para exibição no display
+    LD HL,VAR_REG_R             ; Carrega em HL o endereço onde está o valor salvo do registrador R
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
 .imenu_reg_sp:
     CP 0AH
-    JP NZ,.imenu_reg_a           ; Se o item atual a exibir não for SP, retorna para o inicio do menu, em Reg. A
-    LD B,CHR_S
+    JP NZ,.imenu_reg_a          ; Se o item atual a exibir não for SP, retorna para o inicio do menu, em Reg. A
+    LD B,CHR_S                  ; Carrega o código dos caracteres "S" e "P" em B e C para exibição no display
     LD C,CHR_P
-    LD HL,VAR_REG_SPL
-    LD (RAM_DRAFT2),A
-    JP .imenu_reg_dispin16
-.imenu_reg_dispin:               ; Exibição ou alteração de registradores de 8 bits
-    LD A,C
-    LD (RAM_DISPLAY+2),A
-    CALL isys_disp_data
-    LD A,(RAM_KEYB_CONV)
-    BIT 7,A
-    JR Z,.imenu_reg_dispin
-    RES 7,A
-.imenu_reg_numkey:               ; Pressionada tecla de valor numérico indicando alteração de valor do registrador
-    CP 0FH
-    JR C,.imenu_reg_indata
-    JR .imenu_reg_minus
-.imenu_reg_indata:
-    CALL isys_wait_keyrelease
-    CALL isys_in_data
-    LD A,(RAM_DRAFT2)
-    JP .imenu_reg_a
-.imenu_reg_minus:                ; Pressionada tecla "-" para navegação entre os registradores exibidos no display
-    CP 12H
-    JR NZ,.imenu_reg_plus
-    LD A,(RAM_DRAFT2)
-    CP 00H
-    JR Z,.imenu_reg_nodec
-    DEC A
-    LD (RAM_DRAFT2),A
-.imenu_reg_nodec:
-    CALL isys_wait_keyrelease
-    JP .imenu_reg_a
-.imenu_reg_plus:                 ; Pressionada tecla "+" para navegação entre os registradores exibidos no display
-    CP 13H
-    JR NZ,.imenu_reg_otherkey
-    LD A,(RAM_DRAFT2)
-    CP 0AH
-    JP Z,.imenu_reg_noinc
-    INC A
-    LD (RAM_DRAFT2),A
+    LD HL,VAR_REG_SPL           ; Carrega em HL o endereço onde está o valor salvo do registrador SP
+    LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+    JP .imenu_reg_dispin16      ; Salta para rotina de exibição ou alteração do valor do registrador
+.imenu_reg_dispin:              ; Exibição ou alteração de registradores de 8 bits
+    LD A,C                      ; Carrega em A o código do caractere a ser exibido nos displays de endereços
+    LD (RAM_DISPLAY+2),A        ; Escreve na área de memória dos displays de endereços o valor de A
+    CALL isys_disp_data         ; Chama a sub-rotina de exibição de dados nos displays de dados (dado apontado na memória por HL)
+    LD A,(RAM_KEYB_CONV)        ; Atualiza a exibição do display e leitura do teclado
+    BIT 7,A                     ; Testa se alguma tecla foi pressionada (bit 7 = ON, tecla foi pressionada)
+    JR Z,.imenu_reg_dispin      ; Loop para rotina de exibição ou alteração do valor do registrador
+    RES 7,A                     ; Retira (zera) o bit de tecla pressionada
+.imenu_reg_numkey:              
+    CP 0FH                      ; Verifica (pelo JR C abaixo) se a tecla pressionada é numérica, código da tecla =< 0FH
+    JR C,.imenu_reg_indata      ; Pressionada tecla de valor numérico indicando alteração de valor do registrador
+    JR .imenu_reg_minus         ; Não sendo tecla numérica, verifica se não é a tecla "-"
+.imenu_reg_indata:              ; Ponto de entrada de tratamento de entrada numérica (tecla numérica foi apertada)
+    CALL isys_wait_keyrelease   ; Aguarda usuário soltar a tecla
+    CALL isys_in_data           ; Executa sub-rotina de entrada numérica para alteração do valor do registrador 
+    LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+    JP .imenu_reg_a             ; Volta para ponto de entrada de exibição dos registradores nos displays
+.imenu_reg_minus:               
+    CP 12H                      ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "-", código da tecla = 12H
+    JR NZ,.imenu_reg_plus       ; Não sendo tecla "-", verifica se não é a tecla "+" 
+    LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+    CP 00H                      ; Verifica se já está no primeiro item do menu de registradores (índice 0)
+    JR Z,.imenu_reg_nodec       ; Se já estiver no índice 0, não decrementa.
+    DEC A                       ; Se não estiver no índice 0, decrementa o índice de exibição do menu de registradores
+    LD (RAM_DRAFT2),A           ; Salva o índice decrementado em RAM_DRAFT2
+.imenu_reg_nodec:               
+    CALL isys_wait_keyrelease   ; Em caso de não decrementar por estar no índice 0, aguarda soltar a tecla
+    JP .imenu_reg_a             ; Retorna para o menu de registradores, sem alterar o índice
+.imenu_reg_plus:                
+    CP 13H                      ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "+", código da tecla = 12H
+    JR NZ,.imenu_reg_otherkey   ; Não sendo tecla "+", é outra tecla, então os registradores são atualizados com os valores de memória e o menu encerrado
+    LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+    CP 0AH                      ; Verifica se já está no último item do menu de registradores (índice 10 (=0AH))
+    JP Z,.imenu_reg_noinc       ; Se já estiver no índice 10, não incrementa.
+    INC A                       ; Se não estiver no índice 10, incrementa o índice de exibição do menu de registradores
+    LD (RAM_DRAFT2),A           ; Salva o índice decrementado em RAM_DRAFT2
 .imenu_reg_noinc:
-    CALL isys_wait_keyrelease
-    JP .imenu_reg_a
-.imenu_reg_otherkey:             ; Ao finalizar a rotina dos registradores, transfere os valores manipulados na memória para registradore
+    CALL isys_wait_keyrelease   ; Em caso de não incrementar por estar no índice 10, aguarda soltar a tecla
+    JP .imenu_reg_a             ; Retorna para o menu de registradores, sem alterar o índice
+.imenu_reg_otherkey:            ; Ao finalizar a rotina dos registradores, transfere os valores manipulados na memória para registradore
     LD A,(VAR_REG_B)
     LD B,A
     LD A,(VAR_REG_C)
@@ -408,16 +437,16 @@ imenu_reg:
 
 ; Subrotina de edição/exibição da memória
 menu_addr:
-    CALL isys_clean_ram_disp     ; Limpa a memória do display
-    CALL isys_wait_keyrelease    ; Aguarda a tecla ADR ser solta
+    CALL isys_clean_ram_disp    ; Limpa a memória do display
+    CALL isys_wait_keyrelease   ; Aguarda a tecla ADR ser solta
 menu_addr_in:
     LD A,00H                    ; Zera as variáveis de posição de memória a ser lida ou alterada
     LD (VAR_CURR_ADDRL),A
     LD (VAR_CURR_ADDRH),A
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
-    CALL isys_in_addr            ; Chama a rotina de entrada de valor do endereço
+    CALL isys_in_addr           ; Chama a rotina de entrada de valor do endereço
 menu_wait_keypress:
-    CALL isys_wait_keypress      ; Depois da entrada do endereço, aguarda tecla DAT para entrada de dados ser pressionada ou outra para sair
+    CALL isys_wait_keypress     ; Depois da entrada do endereço, aguarda tecla DAT para entrada de dados ser pressionada ou outra para sair
     RES 7,A                     ; Reseta o bit de tecla pressionada do reg. A
     CP 11H                      ; Se pressionada tecla DAT, vai para rotina de entrada de dado
     JR Z, menu_addr_data
@@ -428,7 +457,7 @@ menu_addr_minus:                ; Rotina de decremento do endereço exibido
     LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
     DEC HL                      ; Decrementa o valor do endereço exibido usando HL
     LD (VAR_CURR_ADDRL),HL      ; Escreve o valor decrementado na váriavel de endereço exibido
-    CALL isys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "-" pressionada
+    CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "-" pressionada
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
     JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
 menu_addr_isplus:
@@ -439,7 +468,7 @@ menu_addr_plus:                 ; Rotina de incremento do endereço obtido
     LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
     INC HL                      ; Incrementa o valor do endereço exibido usando HL
     LD (VAR_CURR_ADDRL),HL      ; Escreve o valor incrementado na váriavel de endereço exibido
-    CALL isys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "+" pressionada
+    CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "+" pressionada
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
     JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
 menu_addr_isgo:
@@ -453,12 +482,12 @@ menu_addr_otherkey:
     JR menu_addr_end            ; Se outra tecla foi pressionada, que não seja "DAT", "+", "-" ou "GO", finaliza a entrada de endereço
 menu_addr_data:
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
-    CALL isys_disp_addr          ; Exibe o endereço/posição de memória carregado
+    CALL isys_disp_addr         ; Exibe o endereço/posição de memória carregado
     LD HL,(VAR_CURR_ADDRL)      ; Carrega o endereço exibido para referenciar com o dado nele existente
-    CALL isys_disp_data          ; Exibe o dado contido no endereço exibido
-    CALL isys_wait_keyrelease    ; Aguarda o usuário soltar a tecla "DAT" pressionada
-    CALL isys_wait_keypress      ; Aguarda o usuário pressionar alguma tecla para iniciar o processo de entrada de novo dado ou sair do menu
-    CALL isys_in_data            ; Processa a entrada de dado para o endereço exibido
+    CALL isys_disp_data         ; Exibe o dado contido no endereço exibido
+    CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "DAT" pressionada
+    CALL isys_wait_keypress     ; Aguarda o usuário pressionar alguma tecla para iniciar o processo de entrada de novo dado ou sair do menu
+    CALL isys_in_data           ; Processa a entrada de dado para o endereço exibido
     JR menu_wait_keypress       ; Quando finalizada a entrada, volta para o inicio do menu de endereço para testar próxima tecla pressionada
 menu_addr_end:
     LD A,0FFH                   ; Carrega FFH em A, para escapar de próximas condições de tecla pressionada do menu principal
@@ -467,7 +496,7 @@ menu_addr_end:
 
 ; Subrotina de limpeza da area de memoria para o display
 ;
-isys_clean_ram_disp:             ; Inicializa area de memoria do display
+isys_clean_ram_disp:            ; Inicializa area de memoria do display
     PUSH HL                     ; Reserva HL
     PUSH BC                     ; Reserva BC
     LD HL,RAM_DISPLAY           ; Inicio da RAM para display
@@ -490,7 +519,7 @@ isys_disp_data:
     CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
     POP DE                      ; Retoma valor reservado de DE
     POP BC                      ; Retoma valor reservado de BC
-    CALL isys_keyb_disp          ; Exibe no display o valor do endereço
+    CALL isys_keyb_disp         ; Exibe no display o valor do endereço
     RET
     DB 00H
 
@@ -507,7 +536,7 @@ isys_disp_addr:
     CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (MSB) do dado apontado por HL em caracteres para o display
     POP DE                      ; Retoma valor reservado de DE
     POP BC                      ; Retoma valor reservado de BC
-    CALL isys_keyb_disp          ; Exibe no display o valor do endereço
+    CALL isys_keyb_disp         ; Exibe no display o valor do endereço
     POP HL
     RET
     DB 00H
@@ -519,7 +548,7 @@ isys_disp_addr:
 _sys_mem_conv2nibbles
     LD A,(HL)                   ; Lê o valor contido na posição de memória apontada por HL
     AND 0FH                     ; Filtra apenas a parte menos signicativa
-    CALL isys_conv_hexdisp       ; Converte a parte filtrada de hexa para o código de exibição no display
+    CALL isys_conv_hexdisp      ; Converte a parte filtrada de hexa para o código de exibição no display
     LD A,C                      ; O código de exibição é devolvido em C. Transfere-o para A.
     LD (DE),A                   ; Carrega o valor convertido para o display na posição apontada por DE
     DEC DE
@@ -537,21 +566,21 @@ _sys_mem_conv2nibbles
 ; Subrotina para aguardar em loop uma tecla ser pressionada
 ; A : Código da tecla + bit de tecla pressionada
 isys_wait_keypress
-    CALL isys_keyb_disp          ; Exibe display e lê teclado
+    CALL isys_keyb_disp         ; Exibe display e lê teclado
     LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
     BIT 7,A                     ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
-    JR Z,isys_wait_keypress      ; Fica em loop até uma tecla ser pressionada
+    JR Z,isys_wait_keypress     ; Fica em loop até uma tecla ser pressionada
     RET
     DB 00H
 
 ; Subrotina para aguardar em loop uma tecla ser solta
 ; A : Código da tecla + bit de tecla pressionada
 isys_wait_keyrelease
-    CALL isys_keyb_disp          ; Exibe display e lê teclado
+    CALL isys_keyb_disp         ; Exibe display e lê teclado
     LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
     BIT 7,A
     RET Z                       ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
-    JR isys_wait_keyrelease      ; Fica em loop até uma tecla ser pressionada
+    JR isys_wait_keyrelease     ; Fica em loop até uma tecla ser pressionada
     DB 00H
 
 ; Subrotina de entrada de valor no campo de dados (isys_in_data)
@@ -570,7 +599,7 @@ isys_in_data:
     LD A,00H
     LD (RAM_DRAFT1),A
 .in_data_input_loop:
-    CALL isys_keyb_disp          ; Chama atualização do display e teclado
+    CALL isys_keyb_disp         ; Chama atualização do display e teclado
     LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
     BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
     JR Z,.in_data_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
@@ -585,8 +614,8 @@ isys_in_data:
     JR C,.in_data_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
     JR .in_data_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
 .in_data_num_key:
-    CALL isys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
-    CALL isys_sftl_data_disp     ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+    CALL isys_conv_hexdisp      ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
+    CALL isys_sftl_data_disp    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
                                 ; Atualização do valor na variável apontada por HL, suponha dado 8 bits = "XY"
     LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
     LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "XY"
@@ -623,11 +652,11 @@ isys_in_addr:
     LD (RAM_DISPLAY+1),A        ; Limpa memória de exibição do 2.o display de endereçamento
     LD (RAM_DISPLAY+2),A        ; Limpa memória de exibição do 3.o display de endereçamento
     LD (RAM_DISPLAY+3),A        ; Limpa memória de exibição do 4.o display de endereçamento
-;    CALL isys_clean_ram_disp     ; Limpa a memória de exibição no display
+;    CALL isys_clean_ram_disp   ; Limpa a memória de exibição no display
     LD A,00H
     LD (RAM_DRAFT1),A
 .in_addr_input_loop:
-    CALL isys_keyb_disp          ; Chama atualização do display e teclado
+    CALL isys_keyb_disp         ; Chama atualização do display e teclado
     LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
     BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
     JR Z,.in_addr_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
@@ -642,7 +671,7 @@ isys_in_addr:
     JR C,.in_addr_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
     JR .in_addr_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
 .in_addr_num_key:
-    CALL isys_conv_hexdisp       ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
+    CALL isys_conv_hexdisp      ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
     CALL isys_sftl_addr_disp    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
                                 ; Atualização do valor na variável apontada por HL, suponha dado 16 bits = "WX YZ"
     LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
@@ -884,7 +913,7 @@ isys_delay_ms:
     PUSH AF
 .delay_mult:
     LD A,B
-    LD B, 152                ;Number of loops adjusted to A = delay ms with minimum error
+    LD B, 152                   ; Number of loops adjusted to A = delay ms with minimum error
 .delay_1ms:
     DJNZ .delay_1ms
     LD B,A
@@ -920,7 +949,7 @@ DB_NUMCHAR EQU $
     DB      0FFH                ; Tecla especial 7
     DB      0FFH                ; Tecla especial 8
 
-itest_prog:
+itest_prog:                     ; Rotina do programa de teste do NEMO-80
     LD A,00H
     LD (VAR_TEST),A
     CALL isys_clean_ram_disp
