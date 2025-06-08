@@ -1,0 +1,972 @@
+# file opened: NEMO-80.asm
+  1   0000              ;=========================================================================================================================
+  2   0000              ; Thiago Turcato do Rego - 2024/2025
+  3   0000              ; Project: NEMO-80, New Monitor for CEDM-80 Versão 1.1
+  4   0000              ; File: NEMO-80.asm
+  5   0000              ;=========================================================================================================================
+  6   0000
+  7   0000              ;========================================= TERMINOLOGIAS, CONVENÇÕES E ORGANIZAÇÃO =======================================
+  8   0000              ;
+  9   0000              ; -- CONVENÇÕES DE SÍMBOLOS --
+ 10   0000              ; - Símbolos em LETRAS MAIUSCULAS = constantes (podem ser constantes que indicam uma posição de memória)
+ 11   0000              ; - Labels que começam com "." são entradas locais dentro de uma rotina
+ 12   0000              ; - Labels que começam com "_" são subrotinas auxiliares locais (úteis apenas para outra subrotina)
+ 13   0000              ; - Labels que iniciam com "sys_" são subrotinas de sistema, que podem ser usadas pelo usuário (leitura de teclado etc.)
+ 14   0000              ; - Labels outros são do programa monitor e também podem ser chamados pelo usuário
+ 15   0000              ;
+ 16   0000              ;==========================================================================================================================
+ 17   0000
+ 18   0000              ; Diretivas de compilação para alocação de memória e geração de arquivo SLD para o simulador DeZog de CPU Z80 (VSCode)
+ 19   0000               DEVICE NOSLOT64K
+ 20   0000               SLDOPT COMMENT WPMEM, LOGPOINT, ASSERTION
+ 21   0000
+ 22   0000              ;******** Definição de constantes ********
+ 23   0000              ; Endereço inicial da ROM e tamanho (2 KiB = 2048 bytes, 0000H ~ 07FFH)
+ 24   0000              ROMBEGIN        EQU 0000H
+ 25   0000              ROMSIZE         EQU 800H
+ 26   0000
+ 27   0000              ; Endereço inicial da RAM e tamanho (2 KiB = 2048 bytes, 2000H ~ 27FFH)
+ 28   0000              RAMBEGIN        EQU 2000H
+ 29   0000              RAMSIZE         EQU 800H
+ 30   0000
+ 31   0000              ; Constantes de codificação para exibição de caracteres no display do CEDM-80
+ 32   0000              CHR_0           EQU 0C0H
+ 33   0000              CHR_1           EQU 0F9H
+ 34   0000              CHR_2           EQU 0A4H
+ 35   0000              CHR_3           EQU 0B0H
+ 36   0000              CHR_4           EQU 099H
+ 37   0000              CHR_5           EQU 092H
+ 38   0000              CHR_6           EQU 082H
+ 39   0000              CHR_7           EQU 0F8H
+ 40   0000              CHR_8           EQU 080H
+ 41   0000              CHR_9           EQU 090H
+ 42   0000              CHR_A           EQU 088H
+ 43   0000              CHR_B           EQU 083H
+ 44   0000              CHR_C           EQU 0C6H
+ 45   0000              CHR_D           EQU 0A1H
+ 46   0000              CHR_E           EQU 086H
+ 47   0000              CHR_F           EQU 08EH
+ 48   0000              CHR_G           EQU 082H
+ 49   0000              CHR_H           EQU 089H
+ 50   0000              CHR_I           EQU 0F9H
+ 51   0000              CHR_J           EQU 0E1H
+ 52   0000              CHR_L           EQU 0C7H
+ 53   0000              CHR_M           EQU 0AAH
+ 54   0000              CHR_N           EQU 0C8H
+ 55   0000              CHR_O           EQU 0C0H
+ 56   0000              CHR_P           EQU 08CH
+ 57   0000              CHR_Q           EQU 098H
+ 58   0000              CHR_R           EQU 0AFH
+ 59   0000              CHR_S           EQU 092H
+ 60   0000              CHR_T           EQU 087H
+ 61   0000              CHR_U           EQU 0C1H
+ 62   0000              CHR_EQUAL       EQU 0B7H
+ 63   0000
+ 64   0000
+ 65   0000              ; Constantes dos códigos das teclas, devolvido pela subrotina "sys_keyb_disp"
+ 66   0000              ; (essas constantes foram consideradas SEM o bit 7 setado - indicador de tecla pressionada)
+ 67   0000              KEY_0           EQU 000H
+ 68   0000              KEY_1           EQU 001H
+ 69   0000              KEY_2           EQU 002H
+ 70   0000              KEY_3           EQU 003H
+ 71   0000              KEY_4           EQU 004H
+ 72   0000              KEY_5           EQU 005H
+ 73   0000              KEY_6           EQU 006H
+ 74   0000              KEY_7           EQU 007H
+ 75   0000              KEY_8           EQU 008H
+ 76   0000              KEY_9           EQU 009H
+ 77   0000              KEY_A           EQU 00AH
+ 78   0000              KEY_B           EQU 00BH
+ 79   0000              KEY_C           EQU 00CH
+ 80   0000              KEY_D           EQU 00DH
+ 81   0000              KEY_E           EQU 00EH
+ 82   0000              KEY_F           EQU 00FH
+ 83   0000              KEY_ADR         EQU 010H
+ 84   0000              KEY_DAT         EQU 011H
+ 85   0000              KEY_MINUS       EQU 012H
+ 86   0000              KEY_PLUS        EQU 013H
+ 87   0000              KEY_GO          EQU 014H
+ 88   0000              KEY_REG         EQU 015H
+ 89   0000              KEY_IV          EQU 016H
+ 90   0000              KEY_EMPTY       EQU 017H
+ 91   0000
+ 92   0000
+ 93   0000              ; Endereços de I/O (I/O ports)
+ 94   0000              DISP            EQU 01H
+ 95   0000              SEL_DISP        EQU 03H
+ 96   0000              KEYB            EQU 01H
+ 97   0000
+ 98   0000              ; Constantes indicativas de endereços de memória
+ 99   0000              ;
+100   0000              ; RESERVADO PARA SISTEMA: END. 2600H ~ 27FF
+101   0000
+102   0000              ; RAM para sistema até 27FF
+103   0000              RAM_SYS_START   EQU (RAMBEGIN + 600H) ; 2600H Inicio da área de RAM reservada para sistema
+104   0000
+105   0000              RAM_DRAFT1      EQU (RAMBEGIN + 768H) ; 2768H Área de rascunho para as subrotinas
+106   0000              RAM_DRAFT2      EQU (RAMBEGIN + 769H) ; 2769H Área de rascunho para as subrotinas
+107   0000              RAM_DRAFT3      EQU (RAMBEGIN + 76AH) ; 276AH Área de rascunho para as subrotinas
+108   0000              RAM_DRAFT4      EQU (RAMBEGIN + 76BH) ; 276BH Área de rascunho para as subrotinas
+109   0000              RAM_DRAFT5      EQU (RAMBEGIN + 76CH) ; 276CH Área de rascunho para as subrotinas
+110   0000              RAM_KEYB_CONV   EQU (RAMBEGIN + 76DH) ; 276DH Código da tecla pressionada já decodificado de 00H a 17H (24 teclas)
+111   0000              RAM_KEYBOARD    EQU (RAMBEGIN + 76EH) ; 276EH Valor binário na matriz da tecla pressionada
+112   0000              RAM_KEYB_COL    EQU (RAMBEGIN + 76FH) ; 276FH Coluna selecionada na varredura do teclado
+113   0000              RAM_DISPLAY     EQU (RAMBEGIN + 770H) ; 2770H Caracteres a serem exibidos no display pos. 2770H a 2775H
+114   0000
+115   0000              ; Stack (pilha de dados) = 2780H a 27FFH
+116   0000              RAM_STACK_0     EQU (RAMBEGIN + 780H) ; 2780H
+117   0000              RAM_STACK_127   EQU (RAMBEGIN + 7FFH) ; 27FFH
+118   0000
+119   0000              ; Variáveis do programa, do endereço 25FF para trás (128 bytes)
+120   0000              VAR_REG_A       EQU (RAMBEGIN + 5F0H) ; 25F0H
+121   0000              VAR_REG_B       EQU (RAMBEGIN + 5F1H) ; 25F1H
+122   0000              VAR_REG_C       EQU (RAMBEGIN + 5F2H) ; 25F2H
+123   0000              VAR_REG_D       EQU (RAMBEGIN + 5F3H) ; 25F3H
+124   0000              VAR_REG_E       EQU (RAMBEGIN + 5F4H) ; 25F4H
+125   0000              VAR_REG_F       EQU (RAMBEGIN + 5F5H) ; 25F5H
+126   0000              VAR_REG_H       EQU (RAMBEGIN + 5F6H) ; 25F6H
+127   0000              VAR_REG_L       EQU (RAMBEGIN + 5F7H) ; 25F7H
+128   0000              VAR_REG_I       EQU (RAMBEGIN + 5F8H) ; 25F8H
+129   0000              VAR_REG_R       EQU (RAMBEGIN + 5F9H) ; 25F9H
+130   0000              VAR_REG_SPL     EQU (RAMBEGIN + 5FAH) ; 25FAH
+131   0000              VAR_REG_SPH     EQU (RAMBEGIN + 5FBH) ; 25FBH
+132   0000              VAR_TEST        EQU (RAMBEGIN + 5FCH) ; 25FCH
+133   0000              VAR_CURR_ADDRL  EQU (RAMBEGIN + 5FEH) ; 25FEH
+134   0000              VAR_CURR_ADDRH  EQU (RAMBEGIN + 5FFH) ; 25FFH
+135   0000
+136   0000              ;******** Início do programa monitor ********
+137   0000                  ORG ROMBEGIN
+138   0000 C3 68 00         JP main                     ; Salta pontos de entrada de interrupção e vai para o programa principal
+139   0003
+140   0003              ; Pontos de entrada de interrupções
+141   0003 FF FF FF...      BLOCK 0038H-$, 0FFH
+142   0038                  ORG 0038H
+143   0038 00               NOP                         ; Espaço para tratamento de interrupções (não implementado)
+144   0039
+145   0039 FF FF FF...      BLOCK 0066H-$, 0FFH
+146   0066                  ORG 0066H
+147   0066 00               NOP                         ; Espaço para tratamento de interrupções (não implementado)
+148   0067
+149   0067 76               HALT                        ; HALT para segurança, caso a execução da interrupção possa vazar
+150   0068
+151   0068              ; ********************** Programa principal **********************
+152   0068              main:
+153   0068              ; Ajustes e configuração iniciais
+154   0068 31 FF 27         LD SP,RAM_STACK_127         ; Ajusta o stack pointer (pilha de dados) no fim da memória RAM. Considerado 128 bytes de stack 2780 até 27FF
+155   006B
+156   006B              ; Inicializações antes do programa
+157   006B              initialization:
+158   006B CD 54 03         CALL isys_clean_ram_disp    ; Limpa a memória de exibição no display
+159   006E
+160   006E              ; Inicio do programa
+161   006E              ini_program:
+162   006E 3E C8            LD A,CHR_N                  ; Mensagem de inicialização NEMO-80
+163   0070 32 70 27         LD (RAM_DISPLAY),A
+164   0073 3E 86            LD A,CHR_E
+165   0075 32 71 27         LD (RAM_DISPLAY+1),A
+166   0078 3E AA            LD A,CHR_M
+167   007A 32 72 27         LD (RAM_DISPLAY+2),A
+168   007D 3E C0            LD A,CHR_O
+169   007F 32 73 27         LD (RAM_DISPLAY+3),A
+170   0082 3E 80            LD A,CHR_8
+171   0084 32 74 27         LD (RAM_DISPLAY+4),A
+172   0087 3E C0            LD A,CHR_0
+173   0089 32 75 27         LD (RAM_DISPLAY+5),A
+174   008C
+175   008C              loop_main_menu:                 ; Rotina de menu inicial
+176   008C CD C2 04         CALL isys_keyb_disp
+177   008F 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Lê memória de tecla pressionada
+178   0092 CB BF            RES 7,A                     ; Reseta o bit indicador de tecla pressionada
+179   0094 FE 10            CP 10H                      ; Se pressionada tecla ADR, chama entrada de endereço
+180   0096 CC E6 02         CALL Z, menu_addr
+181   0099 FE 15            CP 15H                      ; Se pressionada tecla REG, chama menu de registradores
+182   009B CC 37 01         CALL Z, imenu_reg
+183   009E 18 EC            JR loop_main_menu
+184   00A0
+185   00A0 FF FF FF...      BLOCK 0100H-$, 0FFH
+186   0100                  ORG 0100H
+187   0100              ;
+188   0100              ; ********************** Subroutinas **********************
+189   0100              ;
+190   0100              ; Vetores padronizados para chamada de interrupção
+191   0100
+192   0100              ; Chamadas de sistema (sys) acessiveis ao usuário
+193   0100              sys_clean_ram_disp:
+194   0100 C3 54 03         JP  isys_clean_ram_disp      ; CALL 0100H
+195   0103              sys_disp_data:
+196   0103 C3 64 03         JP  isys_disp_data           ; CALL 0103H
+197   0106              sys_disp_addr:
+198   0106 C3 73 03         JP  isys_disp_addr           ; CALL 0106H
+199   0109              sys_wait_keypress:
+200   0109 C3 A4 03         JP  isys_wait_keypress       ; CALL 0109H
+201   010C              sys_wait_keyrelease:
+202   010C C3 B0 03         JP  isys_wait_keyrelease     ; CALL 010CH
+203   010F              sys_in_data:
+204   010F C3 BC 03         JP  isys_in_data             ; CALL 010FH
+205   0112              sys_in_addr:
+206   0112 C3 0C 04         JP  isys_in_addr             ; CALL 0112H
+207   0115              sys_conv_hexdisp:
+208   0115 C3 7B 04         JP  isys_conv_hexdisp        ; CALL 0115H
+209   0118              sys_sftl_addr_disp:
+210   0118 C3 8E 04         JP  isys_sftl_addr_disp      ; CALL 0118H
+211   011B              sys_sftl_data_disp:
+212   011B C3 A8 04         JP  isys_sftl_data_disp      ; CALL 011BH
+213   011E              sys_keyb_disp
+214   011E C3 C2 04         JP  isys_keyb_disp           ; CALL 011EH
+215   0121              sys_delay_ms:
+216   0121 C3 6A 05         JP  isys_delay_ms            ; CALL 0121H
+217   0124
+218   0124              ; Chamadas de funções do programa monitor
+219   0124 FF FF FF...      BLOCK 0130H-$, 0FFH          ; Espaço preenchido com 0FFH na memória até end. 130H para organização
+220   0130                  ORG 0130H
+221   0130              menu_reg:
+222   0130 C3 37 01         JP  imenu_reg                ; CALL 0130H
+223   0133              test_prog:
+224   0133 C3 8E 05         JP  itest_prog               ; CALL 0133H
+225   0136
+226   0136 FF               DB 0FFH
+227   0137
+228   0137              ; Início da implementação das subrotinas
+229   0137
+230   0137              ; Subrotina de edição/exibição dos valores dos registradores
+231   0137              imenu_reg:
+232   0137 F5               PUSH AF                     ; Reserva AF na pilha para poder extrair o valor de F
+233   0138 ED 73 FA 25      LD (VAR_REG_SPL),SP         ; Guarda o valor de todos os registradores em posições de memória
+234   013C 32 F0 25         LD (VAR_REG_A),A
+235   013F 78               LD A,B
+236   0140 32 F1 25         LD (VAR_REG_B),A
+237   0143 79               LD A,C
+238   0144 32 F2 25         LD (VAR_REG_C),A
+239   0147 7A               LD A,D
+240   0148 32 F3 25         LD (VAR_REG_D),A
+241   014B 7B               LD A,E
+242   014C 32 F4 25         LD (VAR_REG_E),A
+243   014F 7C               LD A,H
+244   0150 32 F6 25         LD (VAR_REG_H),A
+245   0153 7D               LD A,L
+246   0154 32 F7 25         LD (VAR_REG_L),A
+247   0157 ED 57            LD A,I
+248   0159 32 F8 25         LD (VAR_REG_I),A
+249   015C ED 5F            LD A,R
+250   015E 32 F9 25         LD (VAR_REG_R),A
+251   0161 2A FA 25         LD HL,(VAR_REG_SPL)         ; Extração do valor de F: ao empurrar AF para a pilha, o valor F fica na memória na posição de SP
+252   0164 7E               LD A,(HL)                   ; Extrai o valor da posição na pilha
+253   0165 32 F5 25         LD (VAR_REG_F),A            ; Guarda o valor de F na memória
+254   0168 F1               POP AF
+255   0169 CD B0 03         CALL isys_wait_keyrelease   ; Aguarda o usuário soltar o botão REG
+256   016C CD 54 03         CALL isys_clean_ram_disp    ; Limpa a exibição no display
+257   016F 3E 00            LD A,00H                    ; Zera a posição de memória DRAFT2, que será usada de rascunho
+258   0171 32 69 27         LD (RAM_DRAFT2),A
+259   0174              .imenu_reg_a:
+260   0174 3E B7            LD A,CHR_EQUAL              ; Coloca um caracter de "=" no DISPLAY+3
+261   0176 32 73 27         LD (RAM_DISPLAY+3),A
+262   0179 3A 69 27         LD A,(RAM_DRAFT2)           ; RAM_DRAFT2 contém qual o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+263   017C FE 00            CP 00H
+264   017E 20 0B            JR NZ,.imenu_reg_b          ; Se o item atual a exibir não for A, segue para testar se é B
+265   0180 0E 88            LD C,CHR_A                  ; Carrega o código do caracter "A" em C para exibição no display
+266   0182 21 F0 25         LD HL,VAR_REG_A             ; Carrega em HL o endereço onde está o valor salvo do acumulador (A)
+267   0185 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+268   0188 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+269   018B              .imenu_reg_b:
+270   018B FE 01            CP 01H
+271   018D 20 0B            JR NZ,.imenu_reg_c          ; Se o item atual a exibir não for B, segue para testar se é C
+272   018F 0E 83            LD C,CHR_B                  ; Carrega o código do caracter "B" em C para exibição no display
+273   0191 21 F1 25         LD HL,VAR_REG_B             ; Carrega em HL o endereço onde está o valor salvo do registrador B
+274   0194 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+275   0197 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+276   019A              .imenu_reg_c:
+277   019A FE 02            CP 02H
+278   019C 20 0B            JR NZ,.imenu_reg_d          ; Se o item atual a exibir não for C, segue para testar se é D
+279   019E 0E C6            LD C,CHR_C                  ; Carrega o código do caracter "C" em C para exibição no display
+280   01A0 21 F2 25         LD HL,VAR_REG_C             ; Carrega em HL o endereço onde está o valor salvo do registrador C
+281   01A3 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+282   01A6 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+283   01A9              .imenu_reg_d:
+284   01A9 FE 03            CP 03H
+285   01AB 20 0B            JR NZ,.imenu_reg_e          ; Se o item atual a exibir não for D, segue para testar se é E
+286   01AD 0E A1            LD C,CHR_D                  ; Carrega o código do caracter "D" em C para exibição no display
+287   01AF 21 F3 25         LD HL,VAR_REG_D             ; Carrega em HL o endereço onde está o valor salvo do registrador D
+288   01B2 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+289   01B5 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+290   01B8              .imenu_reg_e:
+291   01B8 FE 04            CP 04H
+292   01BA 20 0B            JR NZ,.imenu_reg_f          ; Se o item atual a exibir não for E, segue para testar se é F
+293   01BC 0E 86            LD C,CHR_E                  ; Carrega o código do caracter "E" em C para exibição no display
+294   01BE 21 F4 25         LD HL,VAR_REG_E             ; Carrega em HL o endereço onde está o valor salvo do registrador E
+295   01C1 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+296   01C4 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+297   01C7              .imenu_reg_f:
+298   01C7 FE 05            CP 05H
+299   01C9 20 0B            JR NZ,.imenu_reg_h          ; Se o item atual a exibir não for F, segue para testar se é H
+300   01CB 0E 8E            LD C,CHR_F                  ; Carrega o código do caracter "F" em C para exibição no display
+301   01CD 21 F5 25         LD HL,VAR_REG_F             ; Carrega em HL o endereço onde está o valor salvo do registrador F
+302   01D0 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+303   01D3 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+304   01D6              .imenu_reg_h:
+305   01D6 FE 06            CP 06H
+306   01D8 20 0B            JR NZ,.imenu_reg_l          ; Se o item atual a exibir não for H, segue para testar se é L
+307   01DA 0E 89            LD C,CHR_H                  ; Carrega o código do caracter "H" em C para exibição no display
+308   01DC 21 F6 25         LD HL,VAR_REG_H             ; Carrega em HL o endereço onde está o valor salvo do registrador H
+309   01DF 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+310   01E2 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+311   01E5              .imenu_reg_l:
+312   01E5 FE 07            CP 07H
+313   01E7 20 0B            JR NZ,.imenu_reg_i          ; Se o item atual a exibir não for L, segue para testar se é I
+314   01E9 0E C7            LD C,CHR_L                  ; Carrega o código do caracter "L" em C para exibição no display
+315   01EB 21 F7 25         LD HL,VAR_REG_L             ; Carrega em HL o endereço onde está o valor salvo do registrador L
+316   01EE 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+317   01F1 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+318   01F4              .imenu_reg_i:
+319   01F4 FE 08            CP 08H
+320   01F6 20 0B            JR NZ,.imenu_reg_r          ; Se o item atual a exibir não for I, segue para testar se é R
+321   01F8 0E F9            LD C,CHR_I                  ; Carrega o código do caracter "I" em C para exibição no display
+322   01FA 21 F8 25         LD HL,VAR_REG_I             ; Carrega em HL o endereço onde está o valor salvo do registrador I
+323   01FD 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+324   0200 C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+325   0203              .imenu_reg_r:
+326   0203 FE 09            CP 09H
+327   0205 20 0B            JR NZ,.imenu_reg_sp         ; Se o item atual a exibir não for R, segue para testar se é SP
+328   0207 0E AF            LD C,CHR_R                  ; Carrega o código do caracter "R" em C para exibição no display
+329   0209 21 F9 25         LD HL,VAR_REG_R             ; Carrega em HL o endereço onde está o valor salvo do registrador R
+330   020C 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+331   020F C3 24 02         JP .imenu_reg_dispin        ; Salta para rotina de exibição ou alteração do valor do registrador
+332   0212              .imenu_reg_sp:
+333   0212 FE 0A            CP 0AH
+334   0214 C2 74 01         JP NZ,.imenu_reg_a          ; Se o item atual a exibir não for SP, retorna para o inicio do menu, em Reg. A
+335   0217 06 92            LD B,CHR_S                  ; Carrega o código dos caracteres "S" e "P" em B e C para exibição no display
+336   0219 0E 8C            LD C,CHR_P
+337   021B 21 FA 25         LD HL,VAR_REG_SPL           ; Carrega em HL o endereço onde está o valor salvo do registrador SP
+338   021E 32 69 27         LD (RAM_DRAFT2),A           ; Salva em RAM_DRAFT2, o acumul. que contém o item atualmente exibido no menu dos registradores 00 = Reg. A ~ 0A = SP.
+339   0221 C3 92 02         JP .imenu_reg_dispin16      ; Salta para rotina de exibição ou alteração do valor do registrador
+340   0224              .imenu_reg_dispin:              ; Exibição ou alteração de registradores de 8 bits
+341   0224 79               LD A,C                      ; Carrega em A o código do caractere a ser exibido nos displays de endereços
+342   0225 32 72 27         LD (RAM_DISPLAY+2),A        ; Escreve na área de memória dos displays de endereços o valor de A
+343   0228 CD 64 03         CALL isys_disp_data         ; Chama a sub-rotina de exibição de dados nos displays de dados (dado apontado na memória por HL)
+344   022B 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Atualiza a exibição do display e leitura do teclado
+345   022E CB 7F            BIT 7,A                     ; Testa se alguma tecla foi pressionada (bit 7 = ON, tecla foi pressionada)
+346   0230 28 F2            JR Z,.imenu_reg_dispin      ; Loop para rotina de exibição ou alteração do valor do registrador
+347   0232 CB BF            RES 7,A                     ; Retira (zera) o bit de tecla pressionada
+348   0234              .imenu_reg_numkey:
+349   0234 FE 0F            CP 0FH                      ; Verifica (pelo JR C abaixo) se a tecla pressionada é numérica, código da tecla =< 0FH
+350   0236 38 02            JR C,.imenu_reg_indata      ; Pressionada tecla de valor numérico indicando alteração de valor do registrador
+351   0238 18 0C            JR .imenu_reg_minus         ; Não sendo tecla numérica, verifica se não é a tecla "-"
+352   023A              .imenu_reg_indata:              ; Ponto de entrada de tratamento de entrada numérica (tecla numérica foi apertada)
+353   023A CD B0 03         CALL isys_wait_keyrelease   ; Aguarda usuário soltar a tecla
+354   023D CD BC 03         CALL isys_in_data           ; Executa sub-rotina de entrada numérica para alteração do valor do registrador
+355   0240 3A 69 27         LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+356   0243 C3 74 01         JP .imenu_reg_a             ; Volta para ponto de entrada de exibição dos registradores nos displays
+357   0246              .imenu_reg_minus:
+358   0246 FE 12            CP KEY_MINUS                ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "-", código da tecla = 12H
+359   0248 20 11            JR NZ,.imenu_reg_plus       ; Não sendo tecla "-", verifica se não é a tecla "+"
+360   024A 3A 69 27         LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+361   024D FE 00            CP 00H                      ; Verifica se já está no primeiro item do menu de registradores (índice 0)
+362   024F 28 04            JR Z,.imenu_reg_nodec       ; Se já estiver no índice 0, não decrementa.
+363   0251 3D               DEC A                       ; Se não estiver no índice 0, decrementa o índice de exibição do menu de registradores
+364   0252 32 69 27         LD (RAM_DRAFT2),A           ; Salva o índice decrementado em RAM_DRAFT2
+365   0255              .imenu_reg_nodec:
+366   0255 CD B0 03         CALL isys_wait_keyrelease   ; Em caso de não decrementar por estar no índice 0, aguarda soltar a tecla
+367   0258 C3 74 01         JP .imenu_reg_a             ; Retorna para o menu de registradores, sem alterar o índice
+368   025B              .imenu_reg_plus:
+369   025B FE 13            CP KEY_PLUS                 ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "+", código da tecla = 12H
+370   025D 20 12            JR NZ,.imenu_reg_otherkey   ; Não sendo tecla "+", é outra tecla, então os registradores são atualizados com os valores de memória e o menu encerrado
+371   025F 3A 69 27         LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
+372   0262 FE 0A            CP 0AH                      ; Verifica se já está no último item do menu de registradores (índice 10 (=0AH))
+373   0264 CA 6B 02         JP Z,.imenu_reg_noinc       ; Se já estiver no índice 10, não incrementa.
+374   0267 3C               INC A                       ; Se não estiver no índice 10, incrementa o índice de exibição do menu de registradores
+375   0268 32 69 27         LD (RAM_DRAFT2),A           ; Salva o índice decrementado em RAM_DRAFT2
+376   026B              .imenu_reg_noinc:
+377   026B CD B0 03         CALL isys_wait_keyrelease   ; Em caso de não incrementar por estar no índice 10, aguarda soltar a tecla
+378   026E C3 74 01         JP .imenu_reg_a             ; Retorna para o menu de registradores, sem alterar o índice
+379   0271              .imenu_reg_otherkey:            ; Ao finalizar a rotina dos registradores, transfere os valores manipulados na memória para registradore
+380   0271 3A F1 25         LD A,(VAR_REG_B)
+381   0274 47               LD B,A
+382   0275 3A F2 25         LD A,(VAR_REG_C)
+383   0278 4F               LD C,A
+384   0279 3A F3 25         LD A,(VAR_REG_D)
+385   027C 57               LD D,A
+386   027D 3A F4 25         LD A,(VAR_REG_E)
+387   0280 5F               LD E,A
+388   0281 3A F6 25         LD A,(VAR_REG_H)
+389   0284 67               LD H,A
+390   0285 3A F7 25         LD A,(VAR_REG_L)
+391   0288 6F               LD L,A
+392   0289 3A F8 25         LD A,(VAR_REG_I)
+393   028C ED 47            LD I,A
+394   028E 3A F0 25         LD A,(VAR_REG_A)
+395   0291 C9               RET
+396   0292              .imenu_reg_dispin16:             ; Exibição ou alteração de registradores de 16 bits
+397   0292 78               LD A,B                       ; (semelhante à rotina imenu_reg_dispin, vide essa para explicações)
+398   0293 32 74 27         LD (RAM_DISPLAY+4),A
+399   0296 79               LD A,C
+400   0297 32 75 27         LD (RAM_DISPLAY+5),A
+401   029A CD 73 03         CALL isys_disp_addr
+402   029D 3A 6D 27         LD A,(RAM_KEYB_CONV)
+403   02A0 CB 7F            BIT 7,A
+404   02A2 28 EE            JR Z,.imenu_reg_dispin16
+405   02A4 CB BF            RES 7,A
+406   02A6              .imenu_reg_numkey16:
+407   02A6 FE 0F            CP 0FH
+408   02A8 38 02            JR C,.imenu_reg_indata16
+409   02AA 18 09            JR .imenu_reg_minus16
+410   02AC              .imenu_reg_indata16:
+411   02AC CD B0 03         CALL isys_wait_keyrelease
+412   02AF 3A 69 27         LD A,(RAM_DRAFT2)
+413   02B2 C3 74 01         JP .imenu_reg_a
+414   02B5              .imenu_reg_minus16:
+415   02B5 FE 12            CP KEY_MINUS
+416   02B7 20 14            JR NZ,.imenu_reg_plus16
+417   02B9 3A 69 27         LD A,(RAM_DRAFT2)
+418   02BC FE 00            CP 00H
+419   02BE 28 04            JR Z,.imenu_reg_nodec16
+420   02C0 3D               DEC A
+421   02C1 32 69 27         LD (RAM_DRAFT2),A
+422   02C4              .imenu_reg_nodec16:
+423   02C4 CD B0 03         CALL isys_wait_keyrelease
+424   02C7 CD 54 03         CALL isys_clean_ram_disp
+425   02CA C3 74 01         JP .imenu_reg_a
+426   02CD              .imenu_reg_plus16:
+427   02CD FE 13            CP KEY_PLUS
+428   02CF 20 A0            JR NZ,.imenu_reg_otherkey
+429   02D1 3A 69 27         LD A,(RAM_DRAFT2)
+430   02D4 FE 0A            CP 0AH
+431   02D6 28 04            JR Z,.imenu_reg_noinc16
+432   02D8 3C               INC A
+433   02D9 32 69 27         LD (RAM_DRAFT2),A
+434   02DC              .imenu_reg_noinc16:
+435   02DC CD B0 03         CALL isys_wait_keyrelease
+436   02DF CD 54 03         CALL isys_clean_ram_disp
+437   02E2 C3 74 01         JP .imenu_reg_a
+438   02E5 00               DB 00H
+439   02E6
+440   02E6              ; Subrotina de edição/exibição da memória
+441   02E6              menu_addr:
+442   02E6 CD 54 03         CALL isys_clean_ram_disp    ; Limpa a memória do display
+443   02E9 CD B0 03         CALL isys_wait_keyrelease   ; Aguarda a tecla ADR ser solta
+444   02EC              menu_addr_in:
+445   02EC 3E 00            LD A,00H                    ; Zera as variáveis de posição de memória a ser lida ou alterada
+446   02EE 32 FE 25         LD (VAR_CURR_ADDRL),A
+447   02F1 32 FF 25         LD (VAR_CURR_ADDRH),A
+448   02F4 21 FE 25         LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+449   02F7 CD 0C 04         CALL isys_in_addr           ; Chama a rotina de entrada de valor do endereço
+450   02FA              menu_wait_keypress:
+451   02FA CD A4 03         CALL isys_wait_keypress     ; Depois da entrada do endereço, aguarda tecla DAT para entrada de dados ser pressionada ou outra para sair
+452   02FD CB BF            RES 7,A                     ; Reseta o bit de tecla pressionada do reg. A
+453   02FF FE 11            CP KEY_DAT                  ; Se pressionada tecla DAT, vai para rotina de entrada de dado
+454   0301 28 36            JR Z, menu_addr_data
+455   0303 FE 12            CP KEY_MINUS                ; Se pressionada tecla "-", vai para rotina de decremento do endereço exibido
+456   0305 28 02            JR Z, menu_addr_minus
+457   0307 18 0F            JR menu_addr_isplus         ; Se a tecla pressionada não foi "-", verifica se foi pressionado "+"
+458   0309              menu_addr_minus:                ; Rotina de decremento do endereço exibido
+459   0309 2A FE 25         LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
+460   030C 2B               DEC HL                      ; Decrementa o valor do endereço exibido usando HL
+461   030D 22 FE 25         LD (VAR_CURR_ADDRL),HL      ; Escreve o valor decrementado na váriavel de endereço exibido
+462   0310 CD B0 03         CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "-" pressionada
+463   0313 21 FE 25         LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+464   0316 18 21            JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
+465   0318              menu_addr_isplus:
+466   0318 FE 13            CP KEY_PLUS                 ; Se pressionada tecla "+", vai para rotina de incremento do endereço exibido
+467   031A 28 02            JR Z, menu_addr_plus
+468   031C 18 0F            JR menu_addr_isgo           ; Se a tecla pressionada não foi "-", verifica se foi pressionado "GO"
+469   031E              menu_addr_plus:                 ; Rotina de incremento do endereço obtido
+470   031E 2A FE 25         LD HL,(VAR_CURR_ADDRL)      ; Carrega o valor armazenado na variável do endereço exibido
+471   0321 23               INC HL                      ; Incrementa o valor do endereço exibido usando HL
+472   0322 22 FE 25         LD (VAR_CURR_ADDRL),HL      ; Escreve o valor incrementado na váriavel de endereço exibido
+473   0325 CD B0 03         CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "+" pressionada
+474   0328 21 FE 25         LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+475   032B 18 0C            JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
+476   032D              menu_addr_isgo:
+477   032D FE 14            CP KEY_GO                   ; Se pressionada tecla "GO", chama execução no endereço atual
+478   032F 28 02            JR Z, menu_addr_go
+479   0331 18 04            JR menu_addr_otherkey       ; Se a tecla pressionada não foi nenhuma das anteriores, sai do menu de endereço e volta para o menu inicial
+480   0333              menu_addr_go:                   ; Rotina da tecla "GO" de execução do programa a partir do endereço exibido
+481   0333 2A FE 25         LD HL,(VAR_CURR_ADDRL)      ; Carrega o endereço exibido em HL para execução
+482   0336 E9               JP HL                       ; Salta a execução para o endereço exibido
+483   0337              menu_addr_otherkey:
+484   0337 18 17            JR menu_addr_end            ; Se outra tecla foi pressionada, que não seja "DAT", "+", "-" ou "GO", finaliza a entrada de endereço
+485   0339              menu_addr_data:
+486   0339 21 FE 25         LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
+487   033C CD 73 03         CALL isys_disp_addr         ; Exibe o endereço/posição de memória carregado
+488   033F 2A FE 25         LD HL,(VAR_CURR_ADDRL)      ; Carrega o endereço exibido para referenciar com o dado nele existente
+489   0342 CD 64 03         CALL isys_disp_data         ; Exibe o dado contido no endereço exibido
+490   0345 CD B0 03         CALL isys_wait_keyrelease   ; Aguarda o usuário soltar a tecla "DAT" pressionada
+491   0348 CD A4 03         CALL isys_wait_keypress     ; Aguarda o usuário pressionar alguma tecla para iniciar o processo de entrada de novo dado ou sair do menu
+492   034B CD BC 03         CALL isys_in_data           ; Processa a entrada de dado para o endereço exibido
+493   034E 18 AA            JR menu_wait_keypress       ; Quando finalizada a entrada, volta para o inicio do menu de endereço para testar próxima tecla pressionada
+494   0350              menu_addr_end:
+495   0350 3E FF            LD A,0FFH                   ; Carrega FFH em A, para escapar de próximas condições de tecla pressionada do menu principal
+496   0352 C9               RET                         ; Volta para o menu principal
+497   0353 00               DB 00H
+498   0354
+499   0354              ; Subrotina de limpeza da area de memoria para o display
+500   0354              ;
+501   0354              isys_clean_ram_disp:            ; Inicializa area de memoria do display
+502   0354 E5               PUSH HL                     ; Reserva HL
+503   0355 C5               PUSH BC                     ; Reserva BC
+504   0356 21 70 27         LD HL,RAM_DISPLAY           ; Inicio da RAM para display
+505   0359 06 06            LD B,06                     ; Preparar ponteiro para 6 endereços a partir do inicio da RAM para display
+506   035B              .loop_clean_disp:               ; Inicializa area de memoria do display, com FFH (nenhum segmento aceso)
+507   035B 36 FF            LD (HL),0FFH                ; Limpa a exibição no display escrevendo 0FFH na posição de memória
+508   035D 23               INC HL                      ; Coloca o ponteiro na próxima posição de memória
+509   035E 10 FB            DJNZ .loop_clean_disp       ; Decrementa o reg. B e, se não for zero, continua o loop de limpeza da memória
+510   0360 C1               POP BC                      ; Retoma valor reservado de BC
+511   0361 E1               POP HL                      ; Retoma valor reservado de HL
+512   0362 C9               RET
+513   0363 00               DB 00H
+514   0364
+515   0364              ; Subrotina de exibição de dados no campo de dados (isys_disp_data)
+516   0364              ; HL (e HL+1) = posição de memória onde está o dado a ser exibido
+517   0364              isys_disp_data:
+518   0364 C5               PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
+519   0365 D5               PUSH DE                     ; Reserva o valor de DE
+520   0366 11 75 27         LD DE,RAM_DISPLAY+5         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
+521   0369 CD 8B 03         CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
+522   036C D1               POP DE                      ; Retoma valor reservado de DE
+523   036D C1               POP BC                      ; Retoma valor reservado de BC
+524   036E CD C2 04         CALL isys_keyb_disp         ; Exibe no display o valor do endereço
+525   0371 C9               RET
+526   0372 00               DB 00H
+527   0373
+528   0373              ; Subrotina de exibição de dados no campo de endereço (isys_disp_addr)
+529   0373              ; HL (e HL+1) = posição de memória onde está o dado a ser exibido
+530   0373              isys_disp_addr:
+531   0373 E5               PUSH HL
+532   0374 C5               PUSH BC                     ; Reserva o valor de BC (C é usado na subrotina _sys_mem_conv2nibbles)
+533   0375 D5               PUSH DE                     ; Reserva o valor de DE
+534   0376 11 73 27         LD DE,RAM_DISPLAY+3         ; Coloca o ponteiro DE no 4.o display da esq. para a direita
+535   0379 CD 8B 03         CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (LSB) do dado apontado por HL em caracteres para o display
+536   037C 23               INC HL                      ; Coloca ponteiro HL na próxima posição da variável de dado
+537   037D 11 71 27         LD DE,RAM_DISPLAY+1         ; Coloca o ponteiro DE no 2.o display da esq. para a direita
+538   0380 CD 8B 03         CALL _sys_mem_conv2nibbles  ; Chama função que converte os dois nibbles (MSB) do dado apontado por HL em caracteres para o display
+539   0383 D1               POP DE                      ; Retoma valor reservado de DE
+540   0384 C1               POP BC                      ; Retoma valor reservado de BC
+541   0385 CD C2 04         CALL isys_keyb_disp         ; Exibe no display o valor do endereço
+542   0388 E1               POP HL
+543   0389 C9               RET
+544   038A 00               DB 00H
+545   038B
+546   038B              ; Subrotina auxiliar das subrotinas de exibição no display
+547   038B              ; Converte 2 nibbles de uma posição de memória em 2 bytes para exibição no display
+548   038B              ; HL - Posição de entrada do dado a ser separado em nibbles
+549   038B              ; DE - Posição mais alta para escrita dos dados convertidos para display
+550   038B              _sys_mem_conv2nibbles
+551   038B 7E               LD A,(HL)                   ; Lê o valor contido na posição de memória apontada por HL
+552   038C E6 0F            AND 0FH                     ; Filtra apenas a parte menos signicativa
+553   038E CD 7B 04         CALL isys_conv_hexdisp      ; Converte a parte filtrada de hexa para o código de exibição no display
+554   0391 79               LD A,C                      ; O código de exibição é devolvido em C. Transfere-o para A.
+555   0392 12               LD (DE),A                   ; Carrega o valor convertido para o display na posição apontada por DE
+556   0393 1B               DEC DE
+557   0394 7E               LD A,(HL)
+558   0395 CB 3F            SRL A
+559   0397 CB 3F            SRL A
+560   0399 CB 3F            SRL A
+561   039B CB 3F            SRL A
+562   039D CD 7B 04         CALL isys_conv_hexdisp
+563   03A0 79               LD A,C
+564   03A1 12               LD (DE),A
+565   03A2 C9               RET
+566   03A3 00               DB 00H
+567   03A4
+568   03A4              ; Subrotina para aguardar em loop uma tecla ser pressionada
+569   03A4              ; A : Código da tecla + bit de tecla pressionada
+570   03A4              isys_wait_keypress
+571   03A4 CD C2 04         CALL isys_keyb_disp         ; Exibe display e lê teclado
+572   03A7 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
+573   03AA CB 7F            BIT 7,A                     ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
+574   03AC 28 F6            JR Z,isys_wait_keypress     ; Fica em loop até uma tecla ser pressionada
+575   03AE C9               RET
+576   03AF 00               DB 00H
+577   03B0
+578   03B0              ; Subrotina para aguardar em loop uma tecla ser solta
+579   03B0              ; A : Código da tecla + bit de tecla pressionada
+580   03B0              isys_wait_keyrelease
+581   03B0 CD C2 04         CALL isys_keyb_disp         ; Exibe display e lê teclado
+582   03B3 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Lê a memória de tecla lida
+583   03B6 CB 7F            BIT 7,A
+584   03B8 C8               RET Z                       ; Verifica se alguma tecla foi pressionada (digitação de um endereço, p. ex.)
+585   03B9 18 F5            JR isys_wait_keyrelease     ; Fica em loop até uma tecla ser pressionada
+586   03BB 00               DB 00H
+587   03BC
+588   03BC              ; Subrotina de entrada de valor no campo de dados (isys_in_data)
+589   03BC              ; O software fica preso nessa rotina até que uma tecla de 10 a 17 seja pressionada
+590   03BC              ; HL: Definição da primeira área de memória para uso com a entrada de dados (2 dígitos)
+591   03BC              ; Teclas de 0 a F = serão reproduzidas no display e atualizam o valor em (HL)
+592   03BC              ; Teclas de 10 a 17 = encerram o loop da subrotina, tecla pressionada em RAM_KEYB_CONV
+593   03BC              ;       If !(keypress.bit7) then RST keyprsmem.bit7
+594   03BC              ;       If  (keypress.bit7) &&  (keyprsmem.bit7) then end
+595   03BC              ;       If  (keypress.bit7) && !(keyprsmem.bit7) then SET keyprsmem.bit7 and process the input
+596   03BC              isys_in_data:
+597   03BC C5               PUSH BC                     ; Guarda na pilha valor atual de BC para poder usar BC na subrotina
+598   03BD 3E FF            LD A,0FFH
+599   03BF 32 74 27         LD (RAM_DISPLAY+4),A        ; Limpa memória de exibição do 5.o display de endereçamento
+600   03C2 32 75 27         LD (RAM_DISPLAY+5),A        ; Limpa memória de exibição do 6.o display de endereçamento
+601   03C5 3E 00            LD A,00H
+602   03C7 32 68 27         LD (RAM_DRAFT1),A
+603   03CA              .in_data_input_loop:
+604   03CA CD C2 04         CALL isys_keyb_disp         ; Chama atualização do display e teclado
+605   03CD 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+606   03D0 CB 7F            BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
+607   03D2 28 2B            JR Z,.in_data_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
+608   03D4 3A 68 27         LD A,(RAM_DRAFT1)           ; Recupera memória de tecla pressionada (keyprsmem)
+609   03D7 CB 7F            BIT 7,A                     ; Testa bit 7, sinalizador de tecla pressionada anteriormente (keyprsmem.bit7)
+610   03D9 20 EF            JR NZ,.in_data_input_loop   ; bit 7 memória não zero (setado): não faz nada, finaliza a subrotina
+611   03DB CB FF            SET 7,A                     ; Seta bit 7 e segue com o processamento da tecla pressionada
+612   03DD 32 68 27         LD (RAM_DRAFT1),A           ; Salva na memória de tecla pressionada (keyprsmem), que há uma tecla pressionada (bit 7 setado)
+613   03E0 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+614   03E3 CB BF            RES 7,A                     ; Reseta o bit 7 no registrador A para testar se a tecla é numérica ou de função
+615   03E5 FE 10            CP 10H                      ; Compara o código da tecla com 10H (16)
+616   03E7 38 02            JR C,.in_data_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
+617   03E9 18 1E            JR .in_data_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
+618   03EB              .in_data_num_key:
+619   03EB CD 7B 04         CALL isys_conv_hexdisp      ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
+620   03EE CD A8 04         CALL isys_sftl_data_disp    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+621   03F1                                              ; Atualização do valor na variável apontada por HL, suponha dado 8 bits = "XY"
+622   03F1 4F               LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
+623   03F2 7E               LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "XY"
+624   03F3 CB 27            SLA A                       ; Desloca parte menos significativa para esquerda -> A = "Y0"
+625   03F5 CB 27            SLA A
+626   03F7 CB 27            SLA A
+627   03F9 CB 27            SLA A
+628   03FB B1               OR C                        ; Combina valor digitado com valor deslocado -> "Y0" OR "0K" = "YK"
+629   03FC 77               LD (HL),A                   ; Guarda valor combinado na parte menos significativa. Resultado final = "YK"
+630   03FD 18 CB            JR .in_data_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+631   03FF              .in_data_rst_keyprsmem:
+632   03FF 3A 68 27         LD A,(RAM_DRAFT1)           ; HL contém a posição de memória da variável de sistema
+633   0402 CB BF            RES 7,A                     ; Reseta o bit 7, sinalizador de tecla pressionada anteriormente
+634   0404 32 68 27         LD (RAM_DRAFT1),A           ; Grava de volta na memória de sinalização de tecla pressionada anteriormente
+635   0407 18 C1            JR .in_data_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+636   0409              .in_data_end:
+637   0409 C1               POP BC                      ; Recupera registrador BC
+638   040A C9               RET
+639   040B 00               DB 00H
+640   040C
+641   040C              ; Subrotina de entrada de valor no campo de endereço (isys_in_addr)
+642   040C              ; O software fica preso nessa rotina até que uma tecla de 10 a 17 seja pressionada
+643   040C              ; HL: Definição da primeira área de memória para uso com a entrada de dados
+644   040C              ;    (4 dígitos, sequencia little endian)
+645   040C              ; Teclas de 0 a F = serão reproduzidas no display e atualizam o valor em (HL)
+646   040C              ; Teclas de 10 a 17 = encerram o loop da subrotina, tecla pressionada em RAM_KEYB_CONV
+647   040C              ;       If !(keypress.bit7) then RST keyprsmem.bit7
+648   040C              ;       If  (keypress.bit7) &&  (keyprsmem.bit7) then end
+649   040C              ;       If  (keypress.bit7) && !(keyprsmem.bit7) then SET keyprsmem.bit7 and process the input
+650   040C              isys_in_addr:
+651   040C C5               PUSH BC                     ; Guarda na pilha valor atual de BC para poder usar BC na subrotina
+652   040D 3E FF            LD A,0FFH
+653   040F 32 70 27         LD (RAM_DISPLAY),A          ; Limpa memória de exibição do 1.o display de endereçamento
+654   0412 32 71 27         LD (RAM_DISPLAY+1),A        ; Limpa memória de exibição do 2.o display de endereçamento
+655   0415 32 72 27         LD (RAM_DISPLAY+2),A        ; Limpa memória de exibição do 3.o display de endereçamento
+656   0418 32 73 27         LD (RAM_DISPLAY+3),A        ; Limpa memória de exibição do 4.o display de endereçamento
+657   041B              ;    CALL isys_clean_ram_disp   ; Limpa a memória de exibição no display
+658   041B 3E 00            LD A,00H
+659   041D 32 68 27         LD (RAM_DRAFT1),A
+660   0420              .in_addr_input_loop:
+661   0420 CD C2 04         CALL isys_keyb_disp         ; Chama atualização do display e teclado
+662   0423 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+663   0426 CB 7F            BIT 7,A                     ; Testa bit 7 de RAM_KEYB_CONV para verificar se alguma tecla está pressionada (keypress.bit7)
+664   0428 28 44            JR Z,.in_addr_rst_keyprsmem ; Bit 7 keypress é zero (tecla solta): reseta bit 7 memória (keypressmem)
+665   042A 3A 68 27         LD A,(RAM_DRAFT1)           ; Recupera memória de tecla pressionada (keyprsmem)
+666   042D CB 7F            BIT 7,A                     ; Testa bit 7, sinalizador de tecla pressionada anteriormente (keyprsmem.bit7)
+667   042F 20 EF            JR NZ,.in_addr_input_loop   ; bit 7 memória não zero (setado): não faz nada, finaliza a subrotina
+668   0431 CB FF            SET 7,A                     ; Seta bit 7 e segue com o processamento da tecla pressionada
+669   0433 32 68 27         LD (RAM_DRAFT1),A           ; Salva na memória de tecla pressionada (keyprsmem), que há uma tecla pressionada (bit 7 setado)
+670   0436 3A 6D 27         LD A,(RAM_KEYB_CONV)        ; Recupera tecla atualmente pressionada (keypress = RAM_KEYB_CONV)
+671   0439 CB BF            RES 7,A                     ; Reseta o bit 7 no registrador A para testar se a tecla é numérica ou de função
+672   043B FE 10            CP 10H                      ; Compara o código da tecla com 10H (16)
+673   043D 38 02            JR C,.in_addr_num_key       ; Se for menor que 16, a tecla é numérica, segue para o processamento da entrada numérica
+674   043F 18 37            JR .in_addr_end             ; Se for maior ou igual a 16, a tecla é de função, encerra o loop de entrada numérica
+675   0441              .in_addr_num_key:
+676   0441 CD 7B 04         CALL isys_conv_hexdisp      ; Converte o código da tecla hex (= A) em código de exibição correspondente no display -> C
+677   0444 CD 8E 04         CALL isys_sftl_addr_disp    ; Desloca no display 1 dígito para esquerda e acrescenta novo dígito contido em C
+678   0447                                              ; Atualização do valor na variável apontada por HL, suponha dado 16 bits = "WX YZ"
+679   0447 4F               LD C,A                      ; Guarda o valor digitado em C para poder usar o A, suponha valor digitado = "0K"
+680   0448 23               INC HL                      ; Vai para a parte mais significativa dos 16 bits
+681   0449 7E               LD A,(HL)                   ; Lê o dado da parte mais significativa -> "WX"
+682   044A CB 27            SLA A                       ; Desloca parte mais significativa para esquerda -> "X0"
+683   044C CB 27            SLA A
+684   044E CB 27            SLA A
+685   0450 CB 27            SLA A
+686   0452 47               LD B,A                      ; Guarda valor deslocado em B -> B = "X0"
+687   0453 2B               DEC HL                      ; Coloca ponteiro na parte menos significativa
+688   0454 7E               LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "YZ"
+689   0455 CB 3F            SRL A                       ; Desloca parte menos significativa para direita -> A = "0Y"
+690   0457 CB 3F            SRL A
+691   0459 CB 3F            SRL A
+692   045B CB 3F            SRL A
+693   045D B0               OR B                        ; Combina partes deslocadas A e B -> "X0" OR "0Y" = "XY"
+694   045E 23               INC HL                      ; Coloca ponteiro na parte mais significativa
+695   045F 77               LD (HL),A                   ; Guarda valor combinado na parte mais significativa -> (HL) = "XY"
+696   0460 2B               DEC HL                      ; Coloca ponteiro na parte menos significativa
+697   0461 7E               LD A,(HL)                   ; Lê o dado da parte menos significativa -> A = "YZ"
+698   0462 CB 27            SLA A                       ; Desloca parte menos significativa para esquerda -> A = "Z0"
+699   0464 CB 27            SLA A
+700   0466 CB 27            SLA A
+701   0468 CB 27            SLA A
+702   046A B1               OR C                        ; Combina valor digitado com valor deslocado -> "Z0" OR "0K" = "ZK"
+703   046B 77               LD (HL),A                   ; Guarda valor combinado na parte menos significativa. Resultado final = "XYZK"
+704   046C 18 B2            JR .in_addr_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+705   046E              .in_addr_rst_keyprsmem:
+706   046E 3A 68 27         LD A,(RAM_DRAFT1)           ; HL contém a posição de memória da variável de sistema
+707   0471 CB BF            RES 7,A                     ; Reseta o bit 7, sinalizador de tecla pressionada anteriormente
+708   0473 32 68 27         LD (RAM_DRAFT1),A           ; Grava de volta na memória de sinalização de tecla pressionada anteriormente
+709   0476 18 A8            JR .in_addr_input_loop      ; Retorna ao inicio da subrotina de entrada para testar se há próximo digito de entrada
+710   0478              .in_addr_end:
+711   0478 C1               POP BC                      ; Recupera registrador BC
+712   0479 C9               RET
+713   047A 00               DB 00H
+714   047B
+715   047B              ; Subrotina que converte um digito hexadecimal para exibição no display (_conv_hexdisp)
+716   047B              ; A = num. hexadecimal 1 dígito
+717   047B              ; C = retorna o valor para exibição no display
+718   047B              isys_conv_hexdisp:
+719   047B F5               PUSH AF
+720   047C C5               PUSH BC
+721   047D E5               PUSH HL
+722   047E E6 0F            AND 0FH                     ; Isola o nibble menos significativo do código da tecla
+723   0480 4F               LD C,A
+724   0481 06 00            LD B,00H
+725   0483 21 76 05         LD HL,DB_NUMCHAR
+726   0486 09               ADD HL,BC
+727   0487 7E               LD A,(HL)
+728   0488 E1               POP HL
+729   0489 C1               POP BC
+730   048A 4F               LD C,A
+731   048B F1               POP AF
+732   048C C9               RET
+733   048D 00               DB 00H
+734   048E
+735   048E              ; Sub-subrotina de deslocamento da memória do display de endereço (RAM_DISPLAY) em 1 dígito para esquerda
+736   048E              ; C = valor a ser inserido
+737   048E              isys_sftl_addr_disp:
+738   048E E5               PUSH HL
+739   048F D5               PUSH DE
+740   0490 C5               PUSH BC
+741   0491 21 70 27         LD HL,RAM_DISPLAY
+742   0494 54               LD D,H
+743   0495 5D               LD E,L
+744   0496 23               INC HL
+745   0497 0E 03            LD C,03
+746   0499 06 00            LD B,00
+747   049B ED B0            LDIR
+748   049D 13               INC DE
+749   049E C1               POP BC
+750   049F F5               PUSH AF
+751   04A0 2B               DEC HL
+752   04A1 79               LD A,C
+753   04A2 77               LD (HL),A
+754   04A3 F1               POP AF
+755   04A4 D1               POP DE
+756   04A5 E1               POP HL
+757   04A6 C9               RET
+758   04A7 00               DB 00H
+759   04A8
+760   04A8              ; Sub-subrotina de deslocamento da memória do display de dados (RAM_DISPLAY+4) em 1 dígito para esquerda
+761   04A8              ; C = valor a ser inserido
+762   04A8              isys_sftl_data_disp:
+763   04A8 E5               PUSH HL
+764   04A9 D5               PUSH DE
+765   04AA C5               PUSH BC
+766   04AB 21 74 27         LD HL,RAM_DISPLAY+4
+767   04AE 54               LD D,H
+768   04AF 5D               LD E,L
+769   04B0 23               INC HL
+770   04B1 0E 01            LD C,01
+771   04B3 06 00            LD B,00
+772   04B5 ED B0            LDIR
+773   04B7 13               INC DE
+774   04B8 C1               POP BC
+775   04B9 F5               PUSH AF
+776   04BA 2B               DEC HL
+777   04BB 79               LD A,C
+778   04BC 77               LD (HL),A
+779   04BD F1               POP AF
+780   04BE D1               POP DE
+781   04BF E1               POP HL
+782   04C0 C9               RET
+783   04C1 00               DB 00H
+784   04C2
+785   04C2              ; Subrotina de atualização do display/teclado (isys_keyb_disp)
+786   04C2              ; Dados relevantes
+787   04C2              ; (RAM_DISPLAY) = Inicio da sequencia das 6 posições de memória lidas pelo sistema para exibição no display
+788   04C2              ;                 Dado gravado nas posições de memória são o estado de cada segmento do display
+789   04C2              ; (RAM_KEYB_CONV) = Posição de memória onde é armazenado o código da tecla apertada e se há uma tecla apertada
+790   04C2              ;                   Bits (1 byte):  P X X X K K K K
+791   04C2              ;                   P: Se 1, alguma tecla pressionada; Se 0, nenhuma tecla pressionada
+792   04C2              ;                   X: "Don't care" (sem função)
+793   04C2              ;                   KKKK: 1 nibble do código de tecla cf. abaixo:
+794   04C2              ;                   0 a 9H: Teclas "0" a "9" pressionadas (com o bit P)
+795   04C2              ;                   A a FH: Teclas "A" a "F" pressionadas (com o bit P)
+796   04C2              ;                   10H: Tecla "ADR"
+797   04C2              ;                   11H: Tecla "DAT"
+798   04C2              ;                   12H: Tecla "-"
+799   04C2              ;                   13H: Tecla "+"
+800   04C2              ;                   14H: Tecla "GO"
+801   04C2              ;                   15H: Tecla "REG"
+802   04C2              ;                   16H: Tecla "IV"
+803   04C2              ;                   17H: Tecla Vazia
+804   04C2              isys_keyb_disp:
+805   04C2 C5               PUSH BC
+806   04C3 E5               PUSH HL
+807   04C4 3E 00            LD A,00
+808   04C6 32 6D 27         LD (RAM_KEYB_CONV),A        ; Limpa variável de memória do teclado antes de ler o teclado
+809   04C9 3E 01            LD A,01H                    ; Ajusta A para apontar para a primeira coluna de displays (mais significativa)
+810   04CB 21 70 27         LD HL,RAM_DISPLAY           ; Carrega no ponteiro HL primeiro endereço da RAM de sistema para o display
+811   04CE              .keyb_disp_loop:
+812   04CE D3 03            OUT (SEL_DISP),A            ; Seleciona display apontado por A
+813   04D0 4F               LD C,A                      ; Guarda o valor de A
+814   04D1 3E FF            LD A,0FFH
+815   04D3 D3 01            OUT (DISP),A
+816   04D5                  ;LD B, 1
+817   04D5                  ;CALL isys_delay_ms
+818   04D5 DB 01            IN A,(KEYB)                 ; Lê o teclado na coluna atual
+819   04D7 FE 00            CP 00
+820   04D9 28 7B            JR Z,.wr_display            ; Se nada foi lido do teclado (nenhuma tecla apertada), vai para a atualização do display direto
+821   04DB 32 6E 27         LD (RAM_KEYBOARD),A         ; Se algo foi lido do teclado, registra tecla para a coluna atual
+822   04DE 79               LD A,C                      ; Recupera dado de qual coluna está sendo atualizada
+823   04DF 32 6F 27         LD (RAM_KEYB_COL),A         ; Registra na memória de qual coluna é a tecla apertada
+824   04E2              .keyb_disp_cnv:
+825   04E2 3A 6E 27         LD A,(RAM_KEYBOARD)         ; Converte posição da tecla no valor correspondente que representa (função da tecla)
+826   04E5 FE 01            CP 01                       ; Não foi considerada ainda a coluna nesse ponto
+827   04E7 CA 0F 05         JP Z,.keyb_disp_num_0
+828   04EA FE 02            CP 02
+829   04EC CA 14 05         JP Z,.keyb_disp_num_1
+830   04EF FE 04            CP 04
+831   04F1 CA 19 05         JP Z,.keyb_disp_num_2
+832   04F4 FE 08            CP 08
+833   04F6 CA 1E 05         JP Z,.keyb_disp_num_3
+834   04F9 FE 10            CP 16
+835   04FB CA 23 05         JP Z,.keyb_disp_num_4
+836   04FE FE 20            CP 32
+837   0500 CA 28 05         JP Z,.keyb_disp_num_5
+838   0503 FE 40            CP 64
+839   0505 CA 2D 05         JP Z,.keyb_disp_num_6
+840   0508 FE 80            CP 128
+841   050A CA 32 05         JP Z,.keyb_disp_num_7
+842   050D 18 47            JR .wr_display
+843   050F              .keyb_disp_num_0:
+844   050F 3E 00            LD A,00H
+845   0511 47               LD B,A
+846   0512 18 21            JR .keyb_col
+847   0514              .keyb_disp_num_1:
+848   0514 3E 01            LD A,01H
+849   0516 47               LD B,A
+850   0517 18 1C            JR .keyb_col
+851   0519              .keyb_disp_num_2:
+852   0519 3E 02            LD A,02H
+853   051B 47               LD B,A
+854   051C 18 17            JR .keyb_col
+855   051E              .keyb_disp_num_3:
+856   051E 3E 03            LD A,03H
+857   0520 47               LD B,A
+858   0521 18 12            JR .keyb_col
+859   0523              .keyb_disp_num_4:
+860   0523 3E 04            LD A,04H
+861   0525 47               LD B,A
+862   0526 18 0D            JR .keyb_col
+863   0528              .keyb_disp_num_5:
+864   0528 3E 05            LD A,05H
+865   052A 47               LD B,A
+866   052B 18 08            JR .keyb_col
+867   052D              .keyb_disp_num_6:
+868   052D 3E 06            LD A,06H
+869   052F 47               LD B,A
+870   0530 18 03            JR .keyb_col
+871   0532              .keyb_disp_num_7:
+872   0532 3E 07            LD A,07H
+873   0534 47               LD B,A
+874   0535              .keyb_col:
+875   0535 3A 6F 27         LD A,(RAM_KEYB_COL)         ; Decodifica a coluna e calcula o código correto da tecla (0~7H: coluna 1, 8~FH: coluna 2; 10~17H: coluna 3)
+876   0538 FE 01            CP 01
+877   053A 28 0A            JR Z,.keyb_cnv_plus0
+878   053C FE 02            CP 02
+879   053E 28 09            JR Z,.keyb_cnv_plus8
+880   0540 FE 04            CP 04
+881   0542 28 0A            JR Z,.keyb_cnv_plus16
+882   0544 18 10            JR .wr_display
+883   0546              .keyb_cnv_plus0:                ; Identificado como tecla da coluna 1 (0~7H)
+884   0546 78               LD A,B
+885   0547 18 08            JR .keyb_cnv_end
+886   0549              .keyb_cnv_plus8:                ; Identificado como tecla da coluna 2 (8~FH)
+887   0549 78               LD A,B
+888   054A C6 08            ADD A,08
+889   054C 18 03            JR .keyb_cnv_end
+890   054E              .keyb_cnv_plus16:               ; Identificado como tecla da coluna 1 (10~17H)
+891   054E 78               LD A,B
+892   054F C6 10            ADD A,16
+893   0551              .keyb_cnv_end:
+894   0551 CB FF            SET 7,A                     ; Seta o bit 7 do valor convertido para dizer que a tecla foi pressionada, especialmente no caso do zero (0H)
+895   0553 32 6D 27         LD (RAM_KEYB_CONV),A
+896   0556              .wr_display:
+897   0556 7E               LD A,(HL)
+898   0557 D3 01            OUT (DISP),A
+899   0559 06 02            LD B, 2
+900   055B CD 6A 05         CALL isys_delay_ms
+901   055E 23               INC HL
+902   055F 79               LD A,C
+903   0560 87               ADD A,A
+904   0561 FE 40            CP 64
+905   0563 C2 CE 04         JP NZ, .keyb_disp_loop      ; Se não chegou na última coluna de atualização do display (64), vai para o próximo loop
+906   0566 E1               POP HL
+907   0567 C1               POP BC
+908   0568 C9               RET
+909   0569 00               DB 00H
+910   056A
+911   056A              ; Delay (operativo, ms) para clk = 2 MHz (isys_delay_ms);
+912   056A              ; Entrada: B = delay (ms) 0,5% ;
+913   056A              ; Afeta registradores A, B, F
+914   056A              isys_delay_ms:
+915   056A F5               PUSH AF
+916   056B              .delay_mult:
+917   056B 78               LD A,B
+918   056C 06 98            LD B, 152                   ; Numero de loops ajustados para A = delay "ms" com mínimo erro
+919   056E              .delay_1ms:
+920   056E 10 FE            DJNZ .delay_1ms
+921   0570 47               LD B,A
+922   0571 10 F8            DJNZ .delay_mult
+923   0573 F1               POP AF
+924   0574 C9               RET
+925   0575 00               DB 00H
+926   0576
+927   0576              ; Código dos caracteres para exibição no display em sequencia de endereços para facilitar a conversão numérica
+928   0576              DB_NUMCHAR EQU $
+929   0576 C0               DB      0C0H                ; Caractere 0
+930   0577 F9               DB      0F9H                ; Caractere 1
+931   0578 A4               DB      0A4H                ; Caractere 2
+932   0579 B0               DB      0B0H                ; Caractere 3
+933   057A 99               DB      099H                ; Caractere 4
+934   057B 92               DB      092H                ; Caractere 5
+935   057C 82               DB      082H                ; Caractere 6
+936   057D F8               DB      0F8H                ; Caractere 7
+937   057E 80               DB      080H                ; Caractere 8
+938   057F 90               DB      090H                ; Caractere 9
+939   0580 88               DB      088H                ; Caractere A
+940   0581 83               DB      083H                ; Caractere B
+941   0582 C6               DB      0C6H                ; Caractere C
+942   0583 A1               DB      0A1H                ; Caractere D
+943   0584 86               DB      086H                ; Caractere E
+944   0585 8E               DB      08EH                ; Caractere F
+945   0586 FF               DB      0FFH                ; Tecla especial 1
+946   0587 FF               DB      0FFH                ; Tecla especial 2
+947   0588 FF               DB      0FFH                ; Tecla especial 3
+948   0589 FF               DB      0FFH                ; Tecla especial 4
+949   058A FF               DB      0FFH                ; Tecla especial 5
+950   058B FF               DB      0FFH                ; Tecla especial 6
+951   058C FF               DB      0FFH                ; Tecla especial 7
+952   058D FF               DB      0FFH                ; Tecla especial 8
+953   058E
+954   058E              itest_prog:                     ; Rotina do programa de teste do NEMO-80
+955   058E 3E 00            LD A,00H
+956   0590 32 FC 25         LD (VAR_TEST),A
+957   0593 CD 54 03         CALL isys_clean_ram_disp
+958   0596 CD C2 04         CALL isys_keyb_disp
+959   0599              loop_test_inc:
+960   0599 3A FC 25         LD A,(VAR_TEST)
+961   059C 3C               INC A
+962   059D 32 FC 25         LD (VAR_TEST),A
+963   05A0 21 FC 25         LD HL,VAR_TEST
+964   05A3 06 14            LD B,20
+965   05A5              loop_test_disp:
+966   05A5 CD 64 03         CALL isys_disp_data
+967   05A8 10 FB            DJNZ loop_test_disp
+968   05AA 18 ED            JR loop_test_inc
+969   05AC 76               HALT
+970   05AD 00               DB 00H
+# file closed: NEMO-80.asm

@@ -1,5 +1,5 @@
 ;=========================================================================================================================
-; Thiago Turcato do Rego - 2024
+; Thiago Turcato do Rego - 2024/2025
 ; Project: NEMO-80, New Monitor for CEDM-80 Versão 1.1
 ; File: NEMO-80.asm
 ;=========================================================================================================================
@@ -100,38 +100,38 @@ KEYB            EQU 01H
 ; RESERVADO PARA SISTEMA: END. 2600H ~ 27FF
 
 ; RAM para sistema até 27FF
-RAM_SYS_START   EQU 2600H    ; Inicio da área de RAM reservada para sistema
+RAM_SYS_START   EQU (RAMBEGIN + 600H) ; 2600H Inicio da área de RAM reservada para sistema
 
-RAM_DRAFT1      EQU 2768H    ; Área de rascunho para as subrotinas      
-RAM_DRAFT2      EQU 2769H    ; Área de rascunho para as subrotinas
-RAM_DRAFT3      EQU 276AH    ; Área de rascunho para as subrotinas
-RAM_DRAFT4      EQU 276BH    ; Área de rascunho para as subrotinas
-RAM_DRAFT5      EQU 276CH    ; Área de rascunho para as subrotinas
-RAM_KEYB_CONV   EQU 276DH    ; Código da tecla pressionada já decodificado de 00H a 17H (24 teclas)
-RAM_KEYBOARD    EQU 276EH    ; Valor binário na matriz da tecla pressionada
-RAM_KEYB_COL    EQU 276FH    ; Coluna selecionada na varredura do teclado
-RAM_DISPLAY     EQU 2770H    ; Caracteres a serem exibidos no display pos. 2770H a 2775H
+RAM_DRAFT1      EQU (RAMBEGIN + 768H) ; 2768H Área de rascunho para as subrotinas      
+RAM_DRAFT2      EQU (RAMBEGIN + 769H) ; 2769H Área de rascunho para as subrotinas
+RAM_DRAFT3      EQU (RAMBEGIN + 76AH) ; 276AH Área de rascunho para as subrotinas
+RAM_DRAFT4      EQU (RAMBEGIN + 76BH) ; 276BH Área de rascunho para as subrotinas
+RAM_DRAFT5      EQU (RAMBEGIN + 76CH) ; 276CH Área de rascunho para as subrotinas
+RAM_KEYB_CONV   EQU (RAMBEGIN + 76DH) ; 276DH Código da tecla pressionada já decodificado de 00H a 17H (24 teclas)
+RAM_KEYBOARD    EQU (RAMBEGIN + 76EH) ; 276EH Valor binário na matriz da tecla pressionada
+RAM_KEYB_COL    EQU (RAMBEGIN + 76FH) ; 276FH Coluna selecionada na varredura do teclado
+RAM_DISPLAY     EQU (RAMBEGIN + 770H) ; 2770H Caracteres a serem exibidos no display pos. 2770H a 2775H
 
 ; Stack (pilha de dados) = 2780H a 27FFH
-RAM_STACK_0     EQU 2780H
-RAM_STACK_127   EQU 27FFH
+RAM_STACK_0     EQU (RAMBEGIN + 780H) ; 2780H
+RAM_STACK_127   EQU (RAMBEGIN + 7FFH) ; 27FFH
 
 ; Variáveis do programa, do endereço 25FF para trás (128 bytes)
-VAR_REG_A       EQU 25F0H
-VAR_REG_B       EQU 25F1H
-VAR_REG_C       EQU 25F2H
-VAR_REG_D       EQU 25F3H
-VAR_REG_E       EQU 25F4H
-VAR_REG_F       EQU 25F5H
-VAR_REG_H       EQU 25F6H
-VAR_REG_L       EQU 25F7H
-VAR_REG_I       EQU 25F8H
-VAR_REG_R       EQU 25F9H
-VAR_REG_SPL     EQU 25FAH
-VAR_REG_SPH     EQU 25FBH
-VAR_TEST        EQU 25FCH
-VAR_CURR_ADDRL  EQU 25FEH
-VAR_CURR_ADDRH  EQU 25FFH
+VAR_REG_A       EQU (RAMBEGIN + 5F0H) ; 25F0H
+VAR_REG_B       EQU (RAMBEGIN + 5F1H) ; 25F1H
+VAR_REG_C       EQU (RAMBEGIN + 5F2H) ; 25F2H
+VAR_REG_D       EQU (RAMBEGIN + 5F3H) ; 25F3H
+VAR_REG_E       EQU (RAMBEGIN + 5F4H) ; 25F4H
+VAR_REG_F       EQU (RAMBEGIN + 5F5H) ; 25F5H
+VAR_REG_H       EQU (RAMBEGIN + 5F6H) ; 25F6H
+VAR_REG_L       EQU (RAMBEGIN + 5F7H) ; 25F7H
+VAR_REG_I       EQU (RAMBEGIN + 5F8H) ; 25F8H
+VAR_REG_R       EQU (RAMBEGIN + 5F9H) ; 25F9H
+VAR_REG_SPL     EQU (RAMBEGIN + 5FAH) ; 25FAH
+VAR_REG_SPH     EQU (RAMBEGIN + 5FBH) ; 25FBH
+VAR_TEST        EQU (RAMBEGIN + 5FCH) ; 25FCH
+VAR_CURR_ADDRL  EQU (RAMBEGIN + 5FEH) ; 25FEH
+VAR_CURR_ADDRH  EQU (RAMBEGIN + 5FFH) ; 25FFH
 
 ;******** Início do programa monitor ********
     ORG ROMBEGIN
@@ -151,11 +151,11 @@ VAR_CURR_ADDRH  EQU 25FFH
 ; ********************** Programa principal **********************
 main:
 ; Ajustes e configuração iniciais
-    LD SP, 27FFH                ; Ajusta o stack pointer (pilha de dados) no fim da memória RAM. Considerado 128 bytes de stack 2780 até 27FF
+    LD SP,RAM_STACK_127         ; Ajusta o stack pointer (pilha de dados) no fim da memória RAM. Considerado 128 bytes de stack 2780 até 27FF
 
 ; Inicializações antes do programa
 initialization:
-    CALL isys_clean_ram_disp     ; Limpa a memória de exibição no display
+    CALL isys_clean_ram_disp    ; Limpa a memória de exibição no display
 
 ; Inicio do programa
 ini_program:
@@ -178,7 +178,7 @@ loop_main_menu:                 ; Rotina de menu inicial
     RES 7,A                     ; Reseta o bit indicador de tecla pressionada
     CP 10H                      ; Se pressionada tecla ADR, chama entrada de endereço
     CALL Z, menu_addr
-    CP 15H
+    CP 15H                      ; Se pressionada tecla REG, chama menu de registradores
     CALL Z, imenu_reg
     JR loop_main_menu
 
@@ -216,12 +216,14 @@ sys_delay_ms:
     JP  isys_delay_ms            ; CALL 0121H
 
 ; Chamadas de funções do programa monitor
-    BLOCK 0130H-$, 0FFH
+    BLOCK 0130H-$, 0FFH          ; Espaço preenchido com 0FFH na memória até end. 130H para organização
     ORG 0130H
 menu_reg:
     JP  imenu_reg                ; CALL 0130H
 test_prog:
     JP  itest_prog               ; CALL 0133H
+
+    DB 0FFH
 
 ; Início da implementação das subrotinas
 
@@ -353,7 +355,7 @@ imenu_reg:
     LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
     JP .imenu_reg_a             ; Volta para ponto de entrada de exibição dos registradores nos displays
 .imenu_reg_minus:               
-    CP 12H                      ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "-", código da tecla = 12H
+    CP KEY_MINUS                ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "-", código da tecla = 12H
     JR NZ,.imenu_reg_plus       ; Não sendo tecla "-", verifica se não é a tecla "+" 
     LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
     CP 00H                      ; Verifica se já está no primeiro item do menu de registradores (índice 0)
@@ -364,7 +366,7 @@ imenu_reg:
     CALL isys_wait_keyrelease   ; Em caso de não decrementar por estar no índice 0, aguarda soltar a tecla
     JP .imenu_reg_a             ; Retorna para o menu de registradores, sem alterar o índice
 .imenu_reg_plus:                
-    CP 13H                      ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "+", código da tecla = 12H
+    CP KEY_PLUS                 ; Verifica (escapa do JR NZ abaixo) se a tecla pressionada é tecla "+", código da tecla = 12H
     JR NZ,.imenu_reg_otherkey   ; Não sendo tecla "+", é outra tecla, então os registradores são atualizados com os valores de memória e o menu encerrado
     LD A,(RAM_DRAFT2)           ; Recupera valor de onde, no menu de registradores, parou a sequencia de exibição de registradores
     CP 0AH                      ; Verifica se já está no último item do menu de registradores (índice 10 (=0AH))
@@ -392,37 +394,37 @@ imenu_reg:
     LD A,(VAR_REG_A)
     RET
 .imenu_reg_dispin16:             ; Exibição ou alteração de registradores de 16 bits
-    LD A,B
-    LD (RAM_DISPLAY+4),A
+    LD A,B                       ; (semelhante à rotina imenu_reg_dispin, vide essa para explicações)
+    LD (RAM_DISPLAY+4),A         
     LD A,C
-    LD (RAM_DISPLAY+5),A
-    CALL isys_disp_addr
-    LD A,(RAM_KEYB_CONV)
+    LD (RAM_DISPLAY+5),A         
+    CALL isys_disp_addr          
+    LD A,(RAM_KEYB_CONV)         
     BIT 7,A
-    JR Z,.imenu_reg_dispin16
-    RES 7,A
-.imenu_reg_numkey16:
+    JR Z,.imenu_reg_dispin16     
+    RES 7,A                      
+.imenu_reg_numkey16:             
     CP 0FH
-    JR C,.imenu_reg_indata16
-    JR .imenu_reg_minus16
+    JR C,.imenu_reg_indata16     
+    JR .imenu_reg_minus16        
 .imenu_reg_indata16:
     CALL isys_wait_keyrelease
     LD A,(RAM_DRAFT2)
     JP .imenu_reg_a
 .imenu_reg_minus16:
-    CP 12H
-    JR NZ,.imenu_reg_plus16
-    LD A,(RAM_DRAFT2)
-    CP 00H
+    CP KEY_MINUS                 
+    JR NZ,.imenu_reg_plus16      
+    LD A,(RAM_DRAFT2)            
+    CP 00H                       
     JR Z,.imenu_reg_nodec16
-    DEC A
+    DEC A                        
     LD (RAM_DRAFT2),A
 .imenu_reg_nodec16:
     CALL isys_wait_keyrelease
     CALL isys_clean_ram_disp
     JP .imenu_reg_a
 .imenu_reg_plus16:
-    CP 13H
+    CP KEY_PLUS
     JR NZ,.imenu_reg_otherkey
     LD A,(RAM_DRAFT2)
     CP 0AH
@@ -448,9 +450,9 @@ menu_addr_in:
 menu_wait_keypress:
     CALL isys_wait_keypress     ; Depois da entrada do endereço, aguarda tecla DAT para entrada de dados ser pressionada ou outra para sair
     RES 7,A                     ; Reseta o bit de tecla pressionada do reg. A
-    CP 11H                      ; Se pressionada tecla DAT, vai para rotina de entrada de dado
+    CP KEY_DAT                  ; Se pressionada tecla DAT, vai para rotina de entrada de dado
     JR Z, menu_addr_data
-    CP 12H                      ; Se pressionada tecla "-", vai para rotina de decremento do endereço exibido
+    CP KEY_MINUS                ; Se pressionada tecla "-", vai para rotina de decremento do endereço exibido
     JR Z, menu_addr_minus
     JR menu_addr_isplus         ; Se a tecla pressionada não foi "-", verifica se foi pressionado "+"
 menu_addr_minus:                ; Rotina de decremento do endereço exibido
@@ -461,7 +463,7 @@ menu_addr_minus:                ; Rotina de decremento do endereço exibido
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
     JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
 menu_addr_isplus:
-    CP 13H                      ; Se pressionada tecla "+", vai para rotina de incremento do endereço exibido
+    CP KEY_PLUS                 ; Se pressionada tecla "+", vai para rotina de incremento do endereço exibido
     JR Z, menu_addr_plus        
     JR menu_addr_isgo           ; Se a tecla pressionada não foi "-", verifica se foi pressionado "GO"
 menu_addr_plus:                 ; Rotina de incremento do endereço obtido
@@ -472,7 +474,7 @@ menu_addr_plus:                 ; Rotina de incremento do endereço obtido
     LD HL,VAR_CURR_ADDRL        ; Carrega como ponteiro, o endereço da variável da posição de memória a ler/alterar
     JR menu_addr_data           ; Vai para a rotina de entrada de dado dentro do endereço exibido
 menu_addr_isgo:
-    CP 14H                      ; Se pressionada tecla "GO", chama execução no endereço atual
+    CP KEY_GO                   ; Se pressionada tecla "GO", chama execução no endereço atual
     JR Z, menu_addr_go
     JR menu_addr_otherkey       ; Se a tecla pressionada não foi nenhuma das anteriores, sai do menu de endereço e volta para o menu inicial
 menu_addr_go:                   ; Rotina da tecla "GO" de execução do programa a partir do endereço exibido
@@ -889,7 +891,7 @@ isys_keyb_disp:
     LD A,B
     ADD A,16
 .keyb_cnv_end:
-    SET 7,A                     ; Seta o bit 7 do valor convertido para dizer que a tecla foi lida, especialmente no caso do zero (0H)
+    SET 7,A                     ; Seta o bit 7 do valor convertido para dizer que a tecla foi pressionada, especialmente no caso do zero (0H)
     LD (RAM_KEYB_CONV),A
 .wr_display:
     LD A,(HL)
@@ -906,14 +908,14 @@ isys_keyb_disp:
     RET
     DB 00H
 
-; Delay (operative, ms) for clk = 2 MHz (isys_delay_ms);
-; Input: B = delay time (ms) 0,5% ;
-; Affects registers A, B, F
+; Delay (operativo, ms) para clk = 2 MHz (isys_delay_ms);
+; Entrada: B = delay (ms) 0,5% ;
+; Afeta registradores A, B, F
 isys_delay_ms:
     PUSH AF
 .delay_mult:
     LD A,B
-    LD B, 152                   ; Number of loops adjusted to A = delay ms with minimum error
+    LD B, 152                   ; Numero de loops ajustados para A = delay "ms" com mínimo erro
 .delay_1ms:
     DJNZ .delay_1ms
     LD B,A

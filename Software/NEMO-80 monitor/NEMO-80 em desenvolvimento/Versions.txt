@@ -15,4 +15,12 @@ Versão 1.1 - inicio em 05/05/2024. fechamento em ?
 
 * Adicionadas constantes com o código das teclas lidas pela função 
   sys_keyb_disp
+
+* Substituidas as posições de memória das variáveis de valor fixo para valor 
+  relativo ao endereço de memória declarado em RAMBEGIN
+
+* Substituido o valor de definição do inicio do stack para a 
+  definição RAM_STACK_127
+
+* Corrigidos comentários diversos no programa
 ----------------------------------------------------------------------------
